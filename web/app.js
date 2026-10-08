@@ -1,10 +1,244 @@
 /**
  * imgv - High-Performance Image Viewer Client Application
- * Optimized for massive directories (tens of thousands of images) with Virtual Scrolling
+ * Optimized for massive directories with Virtual Scrolling and Multi-Language (EN/VI)
  */
+
+// Multi-Language Localization Dictionary (English by default, Vietnamese supported)
+const I18N = {
+  en: {
+    badgeAnim: "anim",
+    folderTitle: "Click to change folder",
+    changeFolder: "Change folder",
+    searchPlaceholder: "Search images... (Press '/' to focus)",
+    filterAll: "All",
+    filterAnim: "⚡ Animated",
+    filterStatic: "Static",
+    recursive: "Recursive",
+    sortNameAsc: "Name (A → Z)",
+    sortNameDesc: "Name (Z → A)",
+    sortDateDesc: "Date (Newest)",
+    sortDateAsc: "Date (Oldest)",
+    sortSizeDesc: "Size (Largest)",
+    sortSizeAsc: "Size (Smallest)",
+    viewSplit: "Split View (Sidebar + Preview)",
+    viewGrid: "Grid View",
+    helpTitle: "Keyboard Shortcuts (?)",
+    statsFiltered: "{filtered} of {total} images",
+    selectImage: "Select an image",
+    badgeAnimated: "⚡ ANIMATED",
+    dynamicVector: "Dynamic / Vector",
+    emptyTitle: "No images to display",
+    emptySub: "Scan another folder or adjust your search filter",
+    prevImage: "Previous Image (Left Arrow / A)",
+    nextImage: "Next Image (Right Arrow / D)",
+    pause: "Pause",
+    play: "Play",
+    zoomIn: "Zoom In (+)",
+    zoomOut: "Zoom Out (-)",
+    zoomFit: "Fit to Screen (0)",
+    zoom100: "Actual Size 1:1 (1)",
+    rotate: "Rotate 90° (R)",
+    fullscreen: "Toggle Fullscreen (F)",
+    copyPath: "Copy Path (C)",
+    revealFolder: "Reveal in File Manager",
+    delete: "Delete Image",
+
+    // Context Menu
+    ctxOpenFolder: "Open Containing Folder",
+    ctxOpenDefault: "Open with Default App",
+    ctxCopyImage: "Copy Image to Clipboard",
+    ctxCopyPath: "Copy File Path",
+    ctxPlayPause: "Pause / Play",
+    ctxRotate: "Rotate 90°",
+    ctxFlipH: "Flip Horizontal",
+    ctxFitScreen: "Fit to Screen",
+    ctxActualSize: "Actual Size (100%)",
+    ctxFullscreen: "Toggle Fullscreen",
+    ctxProperties: "Image Properties",
+    ctxDelete: "Delete Image",
+
+    // Modals
+    modalFolderTitle: "Change Folder",
+    modalFolderLabel: "Enter folder path:",
+    modalFolderPlaceholder: "/path/to/images or .",
+    modalFolderCancel: "Cancel",
+    modalFolderSubmit: "Scan Folder",
+
+    modalHelpTitle: "Keyboard Shortcuts",
+    shortcutPrev: "Previous image",
+    shortcutNext: "Next image",
+    shortcutPlayPause: "Play / Pause animated image",
+    shortcutFullscreen: "Toggle Fullscreen",
+    shortcutFit: "Fit image to screen",
+    shortcut100: "100% Zoom (1:1)",
+    shortcutZoom: "Zoom In / Out",
+    shortcutRotate: "Rotate 90 degrees",
+    shortcutCopyPath: "Copy file path to clipboard",
+    shortcutSearch: "Focus search bar",
+    shortcutEsc: "Exit fullscreen / Close modal",
+    shortcutClose: "Got it",
+
+    modalPropsTitle: "Image Properties",
+    propName: "File Name:",
+    propFormat: "Format:",
+    propType: "Image Type:",
+    propDimensions: "Dimensions:",
+    propAspect: "Aspect Ratio:",
+    propSize: "File Size:",
+    propModified: "Last Modified:",
+    propPath: "Full Path:",
+    propClose: "Close",
+    typeAnimated: "⚡ Animated",
+    typeStatic: "Static",
+
+    // Toasts
+    toastCopiedPath: "Copied path: {name}",
+    toastCopiedImage: "Image copied to clipboard! 📋",
+    toastCopyingImage: "Copying image to clipboard...",
+    toastAnimPaused: "Animation Paused",
+    toastAnimPlaying: "Animation Playing",
+    toastOpenedFileManager: "Opened file location in File Manager",
+    toastOpenedDefault: "Opened in default system viewer",
+    toastDeleted: "Deleted {name}",
+    toastConfirmDelete: "Are you sure you want to delete \"{name}\"?",
+    toastFlipOn: "Flipped horizontally",
+    toastFlipOff: "Restored orientation",
+    toastActualSize: "Actual Size (100%)",
+    renderModeTitle: "Pixel Sampling: Nearest Neighbor / Smooth (P)",
+    renderModePixel: "Pixel",
+    renderModeSmooth: "Smooth",
+    ctxRenderPixel: "Pixel Sampling: Nearest Neighbor",
+    ctxRenderSmooth: "Pixel Sampling: Smooth",
+    shortcutRenderMode: "Toggle Nearest Neighbor (Pixel Art) / Smooth",
+    toastRenderPixel: "Sampling: Nearest Neighbor (Pixel Art) 👾",
+    toastRenderSmooth: "Sampling: Smooth (Bilinear) ✨",
+  },
+  vi: {
+    badgeAnim: "động",
+    folderTitle: "Bấm để đổi thư mục",
+    changeFolder: "Đổi thư mục",
+    searchPlaceholder: "Tìm kiếm ảnh... (Nhấn '/' để nhập)",
+    filterAll: "Tất cả",
+    filterAnim: "⚡ Ảnh động",
+    filterStatic: "Ảnh tĩnh",
+    recursive: "Đệ quy",
+    sortNameAsc: "Tên (A → Z)",
+    sortNameDesc: "Tên (Z → A)",
+    sortDateDesc: "Ngày (Mới nhất)",
+    sortDateAsc: "Ngày (Cũ nhất)",
+    sortSizeDesc: "Dung lượng (Lớn nhất)",
+    sortSizeAsc: "Dung lượng (Nhỏ nhất)",
+    viewSplit: "Dạng chia đôi (Danh sách + Xem ảnh)",
+    viewGrid: "Dạng lưới",
+    helpTitle: "Phím tắt bàn phím (?)",
+    statsFiltered: "{filtered} trên {total} ảnh",
+    selectImage: "Chọn một ảnh",
+    badgeAnimated: "⚡ ẢNH ĐỘNG",
+    dynamicVector: "Động / Vector",
+    emptyTitle: "Không có ảnh nào để hiển thị",
+    emptySub: "Quét thư mục khác hoặc điều chỉnh bộ lọc tìm kiếm",
+    prevImage: "Ảnh trước (Mũi tên trái / A)",
+    nextImage: "Ảnh tiếp theo (Mũi tên phải / D)",
+    pause: "Tạm dừng",
+    play: "Tiếp tục",
+    zoomIn: "Phóng to (+)",
+    zoomOut: "Thu nhỏ (-)",
+    zoomFit: "Vừa màn hình (0)",
+    zoom100: "Kích thước 1:1 (1)",
+    rotate: "Xoay 90° (R)",
+    fullscreen: "Toàn màn hình (F)",
+    copyPath: "Copy đường dẫn (C)",
+    revealFolder: "Mở trong File Manager",
+    delete: "Xóa ảnh",
+
+    // Context Menu
+    ctxOpenFolder: "Mở thư mục chứa file",
+    ctxOpenDefault: "Mở bằng ứng dụng mặc định",
+    ctxCopyImage: "Copy ảnh vào Clipboard",
+    ctxCopyPath: "Copy đường dẫn file",
+    ctxPlayPause: "Tạm dừng / Tiếp tục",
+    ctxRotate: "Xoay 90°",
+    ctxFlipH: "Lật ngang (Flip)",
+    ctxFitScreen: "Fit vừa màn hình",
+    ctxActualSize: "Kích thước thật (100%)",
+    ctxFullscreen: "Xem toàn màn hình",
+    ctxProperties: "Thông tin chi tiết (Properties)",
+    ctxDelete: "Xóa ảnh này",
+
+    // Modals
+    modalFolderTitle: "Đổi thư mục",
+    modalFolderLabel: "Nhập đường dẫn thư mục:",
+    modalFolderPlaceholder: "/duong/dan/den/anh hoặc .",
+    modalFolderCancel: "Hủy",
+    modalFolderSubmit: "Quét thư mục",
+
+    modalHelpTitle: "Phím tắt bàn phím",
+    shortcutPrev: "Ảnh trước đó",
+    shortcutNext: "Ảnh tiếp theo",
+    shortcutPlayPause: "Tạm dừng / Tiếp tục phát ảnh động",
+    shortcutFullscreen: "Bật / tắt toàn màn hình",
+    shortcutFit: "Fit ảnh vừa màn hình",
+    shortcut100: "Kích thước thật 100% (1:1)",
+    shortcutZoom: "Phóng to / Thu nhỏ",
+    shortcutRotate: "Xoay 90 độ",
+    shortcutCopyPath: "Copy đường dẫn file vào clipboard",
+    shortcutSearch: "Nhập ô tìm kiếm",
+    shortcutEsc: "Thoát toàn màn hình / Đóng hộp thoại",
+    shortcutClose: "Đã hiểu",
+
+    modalPropsTitle: "Thông tin chi tiết ảnh",
+    propName: "Tên tệp:",
+    propFormat: "Định dạng:",
+    propType: "Loại ảnh:",
+    propDimensions: "Độ phân giải:",
+    propAspect: "Tỉ lệ khung hình:",
+    propSize: "Dung lượng:",
+    propModified: "Ngày sửa đổi:",
+    propPath: "Đường dẫn đầy đủ:",
+    propClose: "Đóng",
+    typeAnimated: "⚡ Ảnh động (Animated)",
+    typeStatic: "Ảnh tĩnh (Static)",
+
+    // Toasts
+    toastCopiedPath: "Đã copy đường dẫn: {name}",
+    toastCopiedImage: "Đã copy ảnh vào clipboard! 📋",
+    toastCopyingImage: "Đang copy ảnh vào clipboard...",
+    toastAnimPaused: "Đã tạm dừng ảnh động",
+    toastAnimPlaying: "Đang phát ảnh động",
+    toastOpenedFileManager: "Đã mở vị trí file trong File Manager",
+    toastOpenedDefault: "Đã mở trong trình xem ảnh mặc định",
+    toastDeleted: "Đã xóa {name}",
+    toastConfirmDelete: "Bạn có chắc muốn xóa \"{name}\" không?",
+    toastFlipOn: "Lật ảnh ngang (Flip)",
+    toastFlipOff: "Khôi phục chiều ảnh",
+    toastActualSize: "Kích thước thật (100%)",
+    renderModeTitle: "Khử răng cưa: Nearest Neighbor / Mịn (P)",
+    renderModePixel: "Pixel",
+    renderModeSmooth: "Mịn",
+    ctxRenderPixel: "Chế độ xem: Nearest Neighbor (Pixel Art)",
+    ctxRenderSmooth: "Chế độ xem: Mịn (Bilinear)",
+    shortcutRenderMode: "Bật/tắt Nearest Neighbor (xem Pixel Art)",
+    toastRenderPixel: "Chế độ phóng to: Nearest Neighbor (Sắc nét Pixel Art) 👾",
+    toastRenderSmooth: "Chế độ phóng to: Mịn màng (Smooth) ✨",
+  }
+};
+
+// Default language is strictly 'en' as requested
+function getInitialLang() {
+  const urlParam = new URLSearchParams(window.location.search).get("lang");
+  if (urlParam && (urlParam.toLowerCase() === "vi" || urlParam.toLowerCase() === "en")) {
+    return urlParam.toLowerCase();
+  }
+  const saved = localStorage.getItem("imgv_lang");
+  if (saved && (saved === "vi" || saved === "en")) {
+    return saved;
+  }
+  return "en";
+}
 
 // Application State
 const state = {
+  lang: getInitialLang(),
   rootDir: "",
   images: [],
   filteredImages: [],
@@ -27,6 +261,7 @@ const state = {
   startX: 0,
   startY: 0,
   isPaused: false,
+  renderMode: localStorage.getItem("imgv_render_mode") || "smooth", // "smooth", "pixelated"
 
   // Grid chunking
   gridLoadedCount: 120,
@@ -56,6 +291,7 @@ const DOM = {
   sortSelect: document.getElementById("sortSelect"),
   btnViewSplit: document.getElementById("btnViewSplit"),
   btnViewGrid: document.getElementById("btnViewGrid"),
+  btnLang: document.getElementById("btnLang"),
   btnHelp: document.getElementById("btnHelp"),
 
   sidebar: document.getElementById("sidebar"),
@@ -88,6 +324,9 @@ const DOM = {
   btnZoomOut: document.getElementById("btnZoomOut"),
   btnZoomFit: document.getElementById("btnZoomFit"),
   btnZoom100: document.getElementById("btnZoom100"),
+  btnRenderMode: document.getElementById("btnRenderMode"),
+  renderModeIcon: document.getElementById("renderModeIcon"),
+  renderModeLabel: document.getElementById("renderModeLabel"),
   btnRotate: document.getElementById("btnRotate"),
   btnFullscreen: document.getElementById("btnFullscreen"),
   btnCopyPath: document.getElementById("btnCopyPath"),
@@ -118,6 +357,9 @@ const DOM = {
   ctxPlayPauseLabel: document.getElementById("ctxPlayPauseLabel"),
   ctxRotate: document.getElementById("ctxRotate"),
   ctxFlipH: document.getElementById("ctxFlipH"),
+  ctxRenderMode: document.getElementById("ctxRenderMode"),
+  ctxRenderModeIcon: document.getElementById("ctxRenderModeIcon"),
+  lblCtxRenderMode: document.getElementById("lblCtxRenderMode"),
   ctxFitScreen: document.getElementById("ctxFitScreen"),
   ctxActualSize: document.getElementById("ctxActualSize"),
   ctxFullscreen: document.getElementById("ctxFullscreen"),
@@ -132,6 +374,84 @@ const DOM = {
 
   toast: document.getElementById("toast"),
 };
+
+// Translation Helper Function
+function t(key, params = {}) {
+  const dict = I18N[state.lang] || I18N.en;
+  let str = dict[key] !== undefined ? dict[key] : (I18N.en[key] !== undefined ? I18N.en[key] : key);
+  for (const [k, v] of Object.entries(params)) {
+    str = str.replace(new RegExp(`\\{${k}\\}`, "g"), v);
+  }
+  return str;
+}
+
+function setLanguage(lang) {
+  if (lang !== "en" && lang !== "vi") lang = "en";
+  state.lang = lang;
+  localStorage.setItem("imgv_lang", lang);
+  updateLanguageUI();
+}
+
+function toggleLanguage() {
+  const nextLang = state.lang === "en" ? "vi" : "en";
+  setLanguage(nextLang);
+}
+
+function updateLanguageUI() {
+  // Update language button
+  if (DOM.btnLang) {
+    DOM.btnLang.textContent = state.lang === "en" ? "🌐 EN" : "🌐 VI";
+    DOM.btnLang.title = state.lang === "en" ? "Change Language (English / Tiếng Việt)" : "Đổi ngôn ngữ (English / Tiếng Việt)";
+  }
+
+  // Update elements with data-i18n
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (key) {
+      el.textContent = t(key);
+    }
+  });
+
+  // Update elements with data-i18n-title
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-title");
+    if (key) {
+      el.title = t(key);
+    }
+  });
+
+  // Update elements with data-i18n-placeholder
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-placeholder");
+    if (key) {
+      el.placeholder = t(key);
+    }
+  });
+
+  // Dynamic status updates
+  if (state.images) {
+    const animCount = state.images.filter((img) => img.is_animated).length;
+    DOM.headerAnimatedCount.textContent = `${animCount} ${t("badgeAnim")}`;
+  }
+
+  if (state.filteredImages && state.images) {
+    DOM.filteredStats.textContent = t("statsFiltered", {
+      filtered: state.filteredImages.length.toLocaleString(),
+      total: state.images.length.toLocaleString(),
+    });
+  }
+
+  // Toolbar & Context Menu Play/Pause Labels
+  DOM.playPauseLabel.textContent = state.isPaused ? t("play") : t("pause");
+  DOM.ctxPlayPauseLabel.textContent = state.isPaused ? t("play") : t("pause");
+
+  applyRenderMode(false);
+
+  // Re-render properties modal if currently open
+  if (DOM.propsModal && DOM.propsModal.style.display === "flex") {
+    showImageProperties();
+  }
+}
 
 // Utilities
 function formatBytes(bytes) {
@@ -168,7 +488,7 @@ async function loadImages(folder = "", recursive = state.recursive) {
     // Update UI Header
     DOM.currentFolderPath.textContent = data.root_dir;
     DOM.currentFolderPath.title = data.root_dir;
-    DOM.headerAnimatedCount.textContent = `${data.animated_count} anim`;
+    DOM.headerAnimatedCount.textContent = `${data.animated_count} ${t("badgeAnim")}`;
     DOM.countAll.textContent = data.total_images;
     DOM.countAnim.textContent = data.animated_count;
     DOM.countStatic.textContent = data.static_count;
@@ -259,7 +579,10 @@ function applyFiltersAndSort() {
 
   state.filteredImages = list;
   state.gridLoadedCount = 120; // reset grid chunk
-  DOM.filteredStats.textContent = `${list.length.toLocaleString()} of ${state.images.length.toLocaleString()} images`;
+  DOM.filteredStats.textContent = t("statsFiltered", {
+    filtered: list.length.toLocaleString(),
+    total: state.images.length.toLocaleString(),
+  });
 
   initVirtualList();
   renderFilmstrip();
@@ -435,7 +758,7 @@ function selectImage(index) {
   DOM.previewImageName.title = img.path;
   DOM.previewFormatBadge.textContent = img.format;
   DOM.previewAnimBadge.style.display = img.is_animated ? "inline-block" : "none";
-  DOM.previewDimensions.textContent = img.width && img.height ? `${img.width} × ${img.height} px` : "Dynamic";
+  DOM.previewDimensions.textContent = img.width && img.height ? `${img.width} × ${img.height} px` : t("dynamicVector");
   DOM.previewFileSize.textContent = formatBytes(img.size);
   DOM.previewIndex.textContent = `${(index + 1).toLocaleString()} / ${state.filteredImages.length.toLocaleString()}`;
 
@@ -444,7 +767,7 @@ function selectImage(index) {
   DOM.freezeCanvas.style.display = "none";
   DOM.previewImg.style.display = "block";
   DOM.playPauseIcon.textContent = "⏸️";
-  DOM.playPauseLabel.textContent = "Pause";
+  DOM.playPauseLabel.textContent = t("pause");
   DOM.btnPlayPause.style.display = img.is_animated ? "flex" : "none";
 
   // Set Image Source
@@ -477,6 +800,7 @@ function selectImage(index) {
     const activeCard = gridContainer.querySelector(`[data-index="${index}"]`);
     if (activeCard) {
       activeCard.classList.add("active");
+      activeCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }
 }
@@ -493,22 +817,23 @@ function togglePlayPause() {
     canvas.width = img.naturalWidth || img.clientWidth || 300;
     canvas.height = img.naturalHeight || img.clientHeight || 300;
     const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = state.renderMode !== "pixelated";
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     img.style.display = "none";
     canvas.style.display = "block";
     state.isPaused = true;
     DOM.playPauseIcon.textContent = "▶️";
-    DOM.playPauseLabel.textContent = "Play";
-    showToast("Animation Paused");
+    DOM.playPauseLabel.textContent = t("play");
+    showToast(t("toastAnimPaused"));
   } else {
     // Resume animation
     DOM.freezeCanvas.style.display = "none";
     DOM.previewImg.style.display = "block";
     state.isPaused = false;
     DOM.playPauseIcon.textContent = "⏸️";
-    DOM.playPauseLabel.textContent = "Pause";
-    showToast("Animation Playing");
+    DOM.playPauseLabel.textContent = t("pause");
+    showToast(t("toastAnimPlaying"));
   }
 }
 
@@ -567,13 +892,56 @@ function setZoom100() {
   state.panX = 0;
   state.panY = 0;
   applyTransform();
-  showToast("Actual Size (100%)");
+  showToast(t("toastActualSize"));
+}
+
+// Image Rendering / Interpolation (Nearest Neighbor vs Smooth)
+function applyRenderMode(notify = false) {
+  const isPixel = state.renderMode === "pixelated";
+  if (isPixel) {
+    DOM.canvasContainer.classList.add("render-pixelated");
+    DOM.canvasContainer.classList.remove("render-smooth");
+    if (DOM.btnRenderMode) {
+      DOM.btnRenderMode.classList.add("active");
+      DOM.renderModeIcon.textContent = "👾";
+      DOM.renderModeLabel.textContent = t("renderModePixel");
+      DOM.btnRenderMode.title = t("renderModeTitle");
+    }
+    if (DOM.lblCtxRenderMode) {
+      DOM.lblCtxRenderMode.textContent = t("ctxRenderSmooth");
+      DOM.ctxRenderModeIcon.textContent = "✨";
+    }
+  } else {
+    DOM.canvasContainer.classList.remove("render-pixelated");
+    DOM.canvasContainer.classList.add("render-smooth");
+    if (DOM.btnRenderMode) {
+      DOM.btnRenderMode.classList.remove("active");
+      DOM.renderModeIcon.textContent = "▦";
+      DOM.renderModeLabel.textContent = t("renderModeSmooth");
+      DOM.btnRenderMode.title = t("renderModeTitle");
+    }
+    if (DOM.lblCtxRenderMode) {
+      DOM.lblCtxRenderMode.textContent = t("ctxRenderPixel");
+      DOM.ctxRenderModeIcon.textContent = "👾";
+    }
+  }
+
+  localStorage.setItem("imgv_render_mode", state.renderMode);
+
+  if (notify) {
+    showToast(isPixel ? t("toastRenderPixel") : t("toastRenderSmooth"));
+  }
+}
+
+function toggleRenderMode() {
+  state.renderMode = state.renderMode === "pixelated" ? "smooth" : "pixelated";
+  applyRenderMode(true);
 }
 
 function zoom(deltaFactor, clientX, clientY) {
   const oldScale = state.scale;
   let newScale = oldScale * deltaFactor;
-  newScale = Math.max(0.05, Math.min(25, newScale));
+  newScale = Math.max(0.05, Math.min(50, newScale));
 
   if (clientX !== undefined && clientY !== undefined) {
     const vpRect = DOM.viewport.getBoundingClientRect();
@@ -607,7 +975,7 @@ function copyCurrentPath() {
   const current = state.filteredImages[state.currentIndex];
   if (!current) return;
   navigator.clipboard.writeText(current.path).then(() => {
-    showToast(`Copied path: ${current.name}`);
+    showToast(t("toastCopiedPath", { name: current.name }));
   });
 }
 
@@ -622,7 +990,7 @@ async function openInSystem() {
       body: JSON.stringify({ path: current.path }),
     });
     if (res.ok) {
-      showToast("Opened file location in File Manager");
+      showToast(t("toastOpenedFileManager"));
     }
   } catch (err) {
     showToast("Failed to open file manager");
@@ -634,7 +1002,7 @@ async function deleteCurrentImage() {
   const current = state.filteredImages[state.currentIndex];
   if (!current) return;
 
-  if (!confirm(`Are you sure you want to delete "${current.name}"?`)) {
+  if (!confirm(t("toastConfirmDelete", { name: current.name }))) {
     return;
   }
 
@@ -645,7 +1013,7 @@ async function deleteCurrentImage() {
       body: JSON.stringify({ path: current.path }),
     });
     if (res.ok) {
-      showToast(`Deleted ${current.name}`);
+      showToast(t("toastDeleted", { name: current.name }));
       state.images = state.images.filter((img) => img.path !== current.path);
       applyFiltersAndSort();
     } else {
@@ -667,7 +1035,7 @@ async function openWithDefaultApp() {
       body: JSON.stringify({ path: current.path }),
     });
     if (res.ok) {
-      showToast("Opened in default system viewer");
+      showToast(t("toastOpenedDefault"));
     } else {
       showToast("Could not open in default viewer");
     }
@@ -680,7 +1048,7 @@ async function openWithDefaultApp() {
 async function copyImageToClipboard() {
   const current = state.filteredImages[state.currentIndex];
   if (!current) return;
-  showToast("Copying image to clipboard...");
+  showToast(t("toastCopyingImage"));
   try {
     const fileUrl = `/api/file?path=${encodeURIComponent(current.path)}`;
     const img = new Image();
@@ -700,7 +1068,7 @@ async function copyImageToClipboard() {
           await navigator.clipboard.write([
             new ClipboardItem({ "image/png": blob })
           ]);
-          showToast("Image copied to clipboard! 📋");
+          showToast(t("toastCopiedImage"));
         } catch (err) {
           showToast("Clipboard write permission error: " + err.message);
         }
@@ -719,7 +1087,7 @@ async function copyImageToClipboard() {
 function flipImageHorizontal() {
   state.flipH = !state.flipH;
   applyTransform();
-  showToast(state.flipH ? "Lật ảnh ngang (Flip)" : "Khôi phục chiều ảnh");
+  showToast(state.flipH ? t("toastFlipOn") : t("toastFlipOff"));
 }
 
 // Show Image Properties Details Modal
@@ -732,35 +1100,35 @@ function showImageProperties() {
 
   DOM.propsBody.innerHTML = `
     <div class="prop-row">
-      <span class="prop-label">Tên tệp:</span>
+      <span class="prop-label">${t("propName")}</span>
       <span class="prop-value" title="${current.name}">${current.name}</span>
     </div>
     <div class="prop-row">
-      <span class="prop-label">Định dạng:</span>
+      <span class="prop-label">${t("propFormat")}</span>
       <span class="prop-value">${current.format.toUpperCase()} (${current.ext})</span>
     </div>
     <div class="prop-row">
-      <span class="prop-label">Loại ảnh:</span>
-      <span class="prop-value">${current.is_animated ? "⚡ Ảnh động (Animated)" : "Ảnh tĩnh (Static)"}</span>
+      <span class="prop-label">${t("propType")}</span>
+      <span class="prop-value">${current.is_animated ? t("typeAnimated") : t("typeStatic")}</span>
     </div>
     <div class="prop-row">
-      <span class="prop-label">Độ phân giải:</span>
-      <span class="prop-value">${current.width && current.height ? `${current.width} × ${current.height} px (${mp})` : "Dynamic / Vector"}</span>
+      <span class="prop-label">${t("propDimensions")}</span>
+      <span class="prop-value">${current.width && current.height ? `${current.width} × ${current.height} px (${mp})` : t("dynamicVector")}</span>
     </div>
     <div class="prop-row">
-      <span class="prop-label">Tỉ lệ khung hình:</span>
+      <span class="prop-label">${t("propAspect")}</span>
       <span class="prop-value">${current.aspect_ratio ? current.aspect_ratio.toFixed(2) + " : 1" : "-"}</span>
     </div>
     <div class="prop-row">
-      <span class="prop-label">Dung lượng:</span>
+      <span class="prop-label">${t("propSize")}</span>
       <span class="prop-value">${formatBytes(current.size)} (${current.size.toLocaleString()} bytes)</span>
     </div>
     <div class="prop-row">
-      <span class="prop-label">Ngày sửa đổi:</span>
+      <span class="prop-label">${t("propModified")}</span>
       <span class="prop-value">${modDate}</span>
     </div>
     <div class="prop-row">
-      <span class="prop-label">Đường dẫn đầy đủ:</span>
+      <span class="prop-label">${t("propPath")}</span>
       <span class="prop-value" title="${current.path}">${current.path}</span>
     </div>
   `;
@@ -783,7 +1151,7 @@ function showContextMenu(e, itemIndex) {
   // Toggle play/pause visibility
   if (current.is_animated) {
     DOM.ctxPlayPause.style.display = "flex";
-    DOM.ctxPlayPauseLabel.textContent = state.isPaused ? "Tiếp tục phát" : "Tạm dừng";
+    DOM.ctxPlayPauseLabel.textContent = state.isPaused ? t("play") : t("pause");
     DOM.ctxPlayPauseIcon.textContent = state.isPaused ? "▶️" : "⏸️";
   } else {
     DOM.ctxPlayPause.style.display = "none";
@@ -880,8 +1248,7 @@ function appendGridCards(gridContainer) {
     `;
 
     card.addEventListener("click", () => {
-      selectImage(i);
-      setViewMode("split");
+      setViewMode("split", i);
     });
 
     fragment.appendChild(card);
@@ -896,15 +1263,20 @@ function getTopmostVisibleGridCardIndex(container) {
   const containerTop = container.scrollTop;
   for (const card of cards) {
     if (card.offsetTop + card.offsetHeight > containerTop + 20) {
-      const idx = parseInt(card.dataset.index);
+      const idx = parseInt(card.dataset.index, 10);
       if (!isNaN(idx)) return idx;
     }
   }
   return state.currentIndex;
 }
 
-function setViewMode(mode) {
-  if (state.viewMode === mode) return;
+function setViewMode(mode, targetIndex = null) {
+  if (state.viewMode === mode) {
+    if (mode === "split" && typeof targetIndex === "number" && targetIndex >= 0 && targetIndex < state.filteredImages.length) {
+      selectImage(targetIndex);
+    }
+    return;
+  }
 
   state.viewMode = mode;
   if (mode === "grid") {
@@ -913,14 +1285,20 @@ function setViewMode(mode) {
     DOM.btnViewSplit.classList.remove("active");
     renderGridGallery();
   } else {
-    // Switching to split view: determine which card was at the top of the grid if user scrolled
+    // Switching to split view: determine which card to display
     const grid = document.getElementById("gridGalleryContainer");
     if (grid) {
-      const topIdx = getTopmostVisibleGridCardIndex(grid);
-      if (topIdx >= 0 && topIdx < state.filteredImages.length) {
-        state.currentIndex = topIdx;
+      if (typeof targetIndex === "number" && targetIndex >= 0 && targetIndex < state.filteredImages.length) {
+        state.currentIndex = targetIndex;
+      } else {
+        const topIdx = getTopmostVisibleGridCardIndex(grid);
+        if (topIdx >= 0 && topIdx < state.filteredImages.length) {
+          state.currentIndex = topIdx;
+        }
       }
       grid.remove();
+    } else if (typeof targetIndex === "number" && targetIndex >= 0 && targetIndex < state.filteredImages.length) {
+      state.currentIndex = targetIndex;
     }
 
     DOM.appBody.classList.remove("body-grid-view");
@@ -994,6 +1372,13 @@ function setupKeyboardNavigation() {
     }
 
     switch (e.key) {
+      case "Enter":
+        if (state.viewMode === "grid" && state.currentIndex >= 0) {
+          e.preventDefault();
+          setViewMode("split", state.currentIndex);
+        }
+        break;
+
       case "ArrowRight":
       case "d":
       case "D":
@@ -1031,6 +1416,12 @@ function setupKeyboardNavigation() {
       case "1":
         e.preventDefault();
         setZoom100();
+        break;
+
+      case "p":
+      case "P":
+        e.preventDefault();
+        toggleRenderMode();
         break;
 
       case "+":
@@ -1094,6 +1485,7 @@ function setupEventListeners() {
   DOM.btnZoomOut.addEventListener("click", () => zoom(0.8));
   DOM.btnZoomFit.addEventListener("click", fitToViewport);
   DOM.btnZoom100.addEventListener("click", setZoom100);
+  DOM.btnRenderMode.addEventListener("click", toggleRenderMode);
   DOM.btnRotate.addEventListener("click", rotateImage);
   DOM.btnFullscreen.addEventListener("click", toggleFullscreen);
   DOM.btnCopyPath.addEventListener("click", copyCurrentPath);
@@ -1108,6 +1500,7 @@ function setupEventListeners() {
   DOM.ctxPlayPause.addEventListener("click", () => { hideContextMenu(); togglePlayPause(); });
   DOM.ctxRotate.addEventListener("click", () => { hideContextMenu(); rotateImage(); });
   DOM.ctxFlipH.addEventListener("click", () => { hideContextMenu(); flipImageHorizontal(); });
+  DOM.ctxRenderMode.addEventListener("click", () => { hideContextMenu(); toggleRenderMode(); });
   DOM.ctxFitScreen.addEventListener("click", () => { hideContextMenu(); fitToViewport(); });
   DOM.ctxActualSize.addEventListener("click", () => { hideContextMenu(); setZoom100(); });
   DOM.ctxFullscreen.addEventListener("click", () => { hideContextMenu(); toggleFullscreen(); });
@@ -1233,19 +1626,39 @@ function setupEventListeners() {
     }
   });
 
+  // Language Toggle Button
+  if (DOM.btnLang) {
+    DOM.btnLang.addEventListener("click", toggleLanguage);
+  }
+
   // Shortcuts Help Modal
   DOM.btnHelp.addEventListener("click", () => DOM.helpModal.style.display = "flex");
   DOM.btnCloseHelpModal.addEventListener("click", () => DOM.helpModal.style.display = "none");
   DOM.btnCloseHelpBtn.addEventListener("click", () => DOM.helpModal.style.display = "none");
-
-  // Keep-Alive Heartbeat
-  setInterval(() => {
-    fetch("/api/heartbeat").catch(() => {});
-  }, 2500);
 }
+
+// Keep-Alive Heartbeat & Instant Shutdown on Window Close
+function sendHeartbeat() {
+  fetch("/api/heartbeat").catch(() => {});
+}
+
+sendHeartbeat();
+setInterval(sendHeartbeat, 1500);
+
+function sendShutdownBeacon() {
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/api/shutdown");
+  } else {
+    fetch("/api/shutdown", { keepalive: true }).catch(() => {});
+  }
+}
+
+window.addEventListener("pagehide", sendShutdownBeacon);
+window.addEventListener("beforeunload", sendShutdownBeacon);
 
 // Initialize Application
 document.addEventListener("DOMContentLoaded", () => {
+  updateLanguageUI();
   setupViewportInteractions();
   setupKeyboardNavigation();
   setupEventListeners();

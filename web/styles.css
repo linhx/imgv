@@ -594,6 +594,18 @@ body {
   border-radius: 4px;
 }
 
+/* Image Rendering / Interpolation Modes (Nearest Neighbor vs Smooth) */
+.canvas-container.render-pixelated .media-element {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.canvas-container.render-smooth .media-element {
+  image-rendering: auto;
+}
+
 /* Empty Placeholder */
 .empty-placeholder {
   display: flex;
@@ -683,6 +695,15 @@ body {
 
 .toolbar-btn:hover {
   background-color: var(--bg-active);
+}
+
+.toolbar-btn.active {
+  background-color: var(--accent-color);
+  color: #ffffff;
+}
+
+.toolbar-btn.active:hover {
+  background-color: var(--accent-hover);
 }
 
 .toolbar-btn.danger-hover:hover {

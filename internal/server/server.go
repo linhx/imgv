@@ -63,6 +63,7 @@ func (s *Server) Start(port int) (string, error) {
 	mux.HandleFunc("/api/open-default", s.handleOpenDefault)
 	mux.HandleFunc("/api/delete", s.handleDelete)
 	mux.HandleFunc("/api/heartbeat", s.handleHeartbeat)
+	mux.HandleFunc("/api/shutdown", s.handleShutdown)
 
 	// Embedded Static Assets
 	subFS, err := fs.Sub(s.staticFS, "web")
@@ -101,12 +102,23 @@ func (s *Server) ShutdownChan() <-chan struct{} {
 	return s.shutdownChan
 }
 
+// TriggerShutdown safely closes the shutdown channel
+func (s *Server) TriggerShutdown() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	select {
+	case <-s.shutdownChan:
+	default:
+		close(s.shutdownChan)
+	}
+}
+
 func (s *Server) heartbeatWatcher() {
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	// Give the browser 15 seconds to open initially
-	time.Sleep(5 * time.Second)
+	startTime := time.Now()
+	initialConnectTimeout := 12 * time.Second
 
 	for range ticker.C {
 		if s.hasHeartbeat.Load() {
@@ -114,9 +126,15 @@ func (s *Server) heartbeatWatcher() {
 			last := s.lastHeartbeat
 			s.mu.RUnlock()
 
-			if time.Since(last) > 7*time.Second {
+			if time.Since(last) > 3500*time.Millisecond {
 				// Window was closed by user
-				close(s.shutdownChan)
+				s.TriggerShutdown()
+				return
+			}
+		} else {
+			// Window never opened or closed before first heartbeat arrived
+			if time.Since(startTime) > initialConnectTimeout {
+				s.TriggerShutdown()
 				return
 			}
 		}
@@ -129,6 +147,20 @@ func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
 	s.hasHeartbeat.Store(true)
 	s.mu.Unlock()
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	go func() {
+		// Wait 800ms to allow recovery if this was merely a page reload (F5)
+		time.Sleep(800 * time.Millisecond)
+		s.mu.RLock()
+		last := s.lastHeartbeat
+		s.mu.RUnlock()
+		if time.Since(last) >= 600*time.Millisecond {
+			s.TriggerShutdown()
+		}
+	}()
 }
 
 func (s *Server) handleImages(w http.ResponseWriter, r *http.Request) {

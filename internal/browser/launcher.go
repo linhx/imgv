@@ -51,7 +51,7 @@ func FindChromiumExecutable() string {
 }
 
 // LaunchApp opens the URL in a dedicated app window (if Chromium is found) or system browser
-func LaunchApp(url string, appMode bool) (*exec.Cmd, error) {
+func LaunchApp(url string, appMode bool, onClose func()) (*exec.Cmd, error) {
 	if appMode {
 		chromePath := FindChromiumExecutable()
 		if chromePath != "" {
@@ -71,6 +71,9 @@ func LaunchApp(url string, appMode bool) (*exec.Cmd, error) {
 				go func() {
 					_ = cmd.Wait()
 					_ = os.RemoveAll(tmpDir)
+					if onClose != nil {
+						onClose()
+					}
 				}()
 				return cmd, nil
 			}

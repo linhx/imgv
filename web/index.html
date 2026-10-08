@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>imgv - Image Viewer</title>
+  <link rel="stylesheet" href="/styles.css">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="alternate icon" href="/favicon.png">
 </head>
@@ -17,51 +18,51 @@
         <span class="badge badge-glow" id="headerAnimatedCount">0 anim</span>
       </div>
 
-      <div class="folder-breadcrumb" id="folderBreadcrumb" title="Click to change folder">
+      <div class="folder-breadcrumb" id="folderBreadcrumb" data-i18n-title="folderTitle" title="Click to change folder">
         <span class="folder-icon">📁</span>
         <span class="folder-path" id="currentFolderPath">Loading...</span>
-        <button class="icon-btn-tiny" id="btnChangeFolder" title="Change folder">✏️</button>
+        <button class="icon-btn-tiny" id="btnChangeFolder" data-i18n-title="changeFolder" title="Change folder">✏️</button>
       </div>
     </div>
 
     <div class="header-center">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="Search images... (Press '/' to focus)" autocomplete="off">
+        <input type="text" id="searchInput" data-i18n-placeholder="searchPlaceholder" placeholder="Search images... (Press '/' to focus)" autocomplete="off">
         <button class="clear-search-btn" id="clearSearchBtn" style="display: none;">✕</button>
       </div>
 
       <div class="filter-pills" id="filterPills">
-        <button class="pill active" data-filter="all">All <span class="pill-count" id="countAll">0</span></button>
-        <button class="pill pill-anim" data-filter="animated">⚡ Animated <span class="pill-count" id="countAnim">0</span></button>
-        <button class="pill" data-filter="static">Static <span class="pill-count" id="countStatic">0</span></button>
+        <button class="pill active" data-filter="all"><span data-i18n="filterAll">All</span> <span class="pill-count" id="countAll">0</span></button>
+        <button class="pill pill-anim" data-filter="animated"><span data-i18n="filterAnim">⚡ Animated</span> <span class="pill-count" id="countAnim">0</span></button>
+        <button class="pill" data-filter="static"><span data-i18n="filterStatic">Static</span> <span class="pill-count" id="countStatic">0</span></button>
       </div>
     </div>
 
     <div class="header-right">
       <label class="toggle-control" title="Scan subdirectories">
         <input type="checkbox" id="recursiveCheckbox" checked>
-        <span class="toggle-label">Recursive</span>
+        <span class="toggle-label" data-i18n="recursive">Recursive</span>
       </label>
 
       <div class="sort-selector">
         <select id="sortSelect">
-          <option value="name_asc">Name (A → Z)</option>
-          <option value="name_desc">Name (Z → A)</option>
-          <option value="date_desc">Date (Newest)</option>
-          <option value="date_asc">Date (Oldest)</option>
-          <option value="size_desc">Size (Largest)</option>
-          <option value="size_asc">Size (Smallest)</option>
+          <option value="name_asc" data-i18n="sortNameAsc">Name (A → Z)</option>
+          <option value="name_desc" data-i18n="sortNameDesc">Name (Z → A)</option>
+          <option value="date_desc" data-i18n="sortDateDesc">Date (Newest)</option>
+          <option value="date_asc" data-i18n="sortDateAsc">Date (Oldest)</option>
+          <option value="size_desc" data-i18n="sortSizeDesc">Size (Largest)</option>
+          <option value="size_asc" data-i18n="sortSizeAsc">Size (Smallest)</option>
         </select>
       </div>
 
       <div class="view-toggles">
-        <button class="icon-btn active" id="btnViewSplit" title="Split View (Sidebar + Preview)">🗂️</button>
-        <button class="icon-btn" id="btnViewGrid" title="Grid View">⊞</button>
+        <button class="icon-btn active" id="btnViewSplit" data-i18n-title="viewSplit" title="Split View (Sidebar + Preview)">🗂️</button>
+        <button class="icon-btn" id="btnViewGrid" data-i18n-title="viewGrid" title="Grid View">⊞</button>
       </div>
 
       <button class="lang-btn" id="btnLang" title="Change Language (English / Tiếng Việt)">🌐 EN</button>
-      <button class="icon-btn" id="btnHelp" title="Keyboard Shortcuts (?)">⌨️</button>
+      <button class="icon-btn" id="btnHelp" data-i18n-title="helpTitle" title="Keyboard Shortcuts (?)">⌨️</button>
     </div>
   </header>
 
@@ -86,9 +87,9 @@
       <!-- Top floating info bar -->
       <div class="stage-top-bar" id="stageTopBar">
         <div class="image-title-group">
-          <span class="image-name" id="previewImageName">Select an image</span>
+          <span class="image-name" id="previewImageName" data-i18n="selectImage">Select an image</span>
           <span class="badge" id="previewFormatBadge"></span>
-          <span class="badge badge-glow" id="previewAnimBadge" style="display: none;">⚡ ANIMATED</span>
+          <span class="badge badge-glow" id="previewAnimBadge" data-i18n="badgeAnimated" style="display: none;">⚡ ANIMATED</span>
         </div>
         <div class="stage-quick-stats" id="stageQuickStats">
           <span id="previewDimensions">-</span>
@@ -103,8 +104,8 @@
       <div class="viewport" id="viewport">
         <div class="empty-placeholder" id="emptyPlaceholder">
           <div class="empty-icon">📁</div>
-          <h3>No images to display</h3>
-          <p>Scan another folder or adjust your search filter</p>
+          <h3 data-i18n="emptyTitle">No images to display</h3>
+          <p data-i18n="emptySub">Scan another folder or adjust your search filter</p>
         </div>
 
         <div class="canvas-container" id="canvasContainer">
@@ -115,8 +116,8 @@
         </div>
 
         <!-- Floating Navigation Chevrons -->
-        <button class="nav-arrow nav-prev" id="btnPrev" title="Previous Image (Left Arrow / A)">‹</button>
-        <button class="nav-arrow nav-next" id="btnNext" title="Next Image (Right Arrow / D)">›</button>
+        <button class="nav-arrow nav-prev" id="btnPrev" data-i18n-title="prevImage" title="Previous Image (Left Arrow / A)">‹</button>
+        <button class="nav-arrow nav-next" id="btnNext" data-i18n-title="nextImage" title="Next Image (Right Arrow / D)">›</button>
 
         <!-- Floating Control Toolbar -->
         <div class="floating-toolbar" id="floatingToolbar">
@@ -125,17 +126,21 @@
             <span class="btn-label" id="playPauseLabel">Pause</span>
           </button>
           <div class="toolbar-separator"></div>
-          <button class="toolbar-btn" id="btnZoomIn" title="Zoom In (+)">➕</button>
-          <button class="toolbar-btn" id="btnZoomOut" title="Zoom Out (-)">➖</button>
-          <button class="toolbar-btn" id="btnZoomFit" title="Fit to Screen (0)">Fit</button>
-          <button class="toolbar-btn" id="btnZoom100" title="Actual Size 1:1 (1)">1:1</button>
+          <button class="toolbar-btn" id="btnZoomIn" data-i18n-title="zoomIn" title="Zoom In (+)">➕</button>
+          <button class="toolbar-btn" id="btnZoomOut" data-i18n-title="zoomOut" title="Zoom Out (-)">➖</button>
+          <button class="toolbar-btn" id="btnZoomFit" data-i18n-title="zoomFit" title="Fit to Screen (0)">Fit</button>
+          <button class="toolbar-btn" id="btnZoom100" data-i18n-title="zoom100" title="Actual Size 1:1 (1)">1:1</button>
+          <button class="toolbar-btn" id="btnRenderMode" data-i18n-title="renderModeTitle" title="Pixel Interpolation: Nearest Neighbor / Smooth (P)">
+            <span id="renderModeIcon">▦</span>
+            <span class="btn-label" id="renderModeLabel">Smooth</span>
+          </button>
           <div class="toolbar-separator"></div>
-          <button class="toolbar-btn" id="btnRotate" title="Rotate 90° (R)">🔄</button>
-          <button class="toolbar-btn" id="btnFullscreen" title="Fullscreen (F)">⛶</button>
+          <button class="toolbar-btn" id="btnRotate" data-i18n-title="rotate" title="Rotate 90° (R)">🔄</button>
+          <button class="toolbar-btn" id="btnFullscreen" data-i18n-title="fullscreen" title="Fullscreen (F)">⛶</button>
           <div class="toolbar-separator"></div>
-          <button class="toolbar-btn" id="btnCopyPath" title="Copy Path (C)">📋</button>
-          <button class="toolbar-btn" id="btnOpenSystem" title="Reveal in File Manager">📂</button>
-          <button class="toolbar-btn danger-hover" id="btnDelete" title="Delete Image">🗑️</button>
+          <button class="toolbar-btn" id="btnCopyPath" data-i18n-title="copyPath" title="Copy Path (C)">📋</button>
+          <button class="toolbar-btn" id="btnOpenSystem" data-i18n-title="revealFolder" title="Reveal in File Manager">📂</button>
+          <button class="toolbar-btn danger-hover" id="btnDelete" data-i18n-title="delete" title="Delete Image">🗑️</button>
         </div>
       </div>
 
@@ -150,16 +155,16 @@
   <div class="modal-overlay" id="folderModal" style="display: none;">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>Change Folder</h3>
+        <h3 data-i18n="modalFolderTitle">Change Folder</h3>
         <button class="modal-close" id="btnCloseFolderModal">✕</button>
       </div>
       <div class="modal-body">
-        <label for="newFolderPath">Enter folder path:</label>
-        <input type="text" id="newFolderPath" class="modal-input" placeholder="/path/to/images or .">
+        <label for="newFolderPath" data-i18n="modalFolderLabel">Enter folder path:</label>
+        <input type="text" id="newFolderPath" class="modal-input" data-i18n-placeholder="modalFolderPlaceholder" placeholder="/path/to/images or .">
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="btnCancelFolderModal">Cancel</button>
-        <button class="btn btn-primary" id="btnSubmitFolder">Scan Folder</button>
+        <button class="btn btn-secondary" id="btnCancelFolderModal" data-i18n="modalFolderCancel">Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitFolder" data-i18n="modalFolderSubmit">Scan Folder</button>
       </div>
     </div>
   </div>
@@ -168,24 +173,25 @@
   <div class="modal-overlay" id="helpModal" style="display: none;">
     <div class="modal-card help-card">
       <div class="modal-header">
-        <h3>Keyboard Shortcuts</h3>
+        <h3 data-i18n="modalHelpTitle">Keyboard Shortcuts</h3>
         <button class="modal-close" id="btnCloseHelpModal">✕</button>
       </div>
       <div class="modal-body shortcuts-grid">
-        <div class="shortcut-row"><kbd>←</kbd> or <kbd>A</kbd> / <kbd>K</kbd> <span>Previous image</span></div>
-        <div class="shortcut-row"><kbd>→</kbd> or <kbd>D</kbd> / <kbd>J</kbd> <span>Next image</span></div>
-        <div class="shortcut-row"><kbd>Space</kbd> <span>Play / Pause animated image</span></div>
-        <div class="shortcut-row"><kbd>F</kbd> <span>Toggle Fullscreen</span></div>
-        <div class="shortcut-row"><kbd>0</kbd> <span>Fit image to screen</span></div>
-        <div class="shortcut-row"><kbd>1</kbd> <span>100% Zoom (1:1)</span></div>
-        <div class="shortcut-row"><kbd>+</kbd> / <kbd>-</kbd> <span>Zoom In / Out</span></div>
-        <div class="shortcut-row"><kbd>R</kbd> <span>Rotate 90 degrees</span></div>
-        <div class="shortcut-row"><kbd>C</kbd> <span>Copy file path to clipboard</span></div>
-        <div class="shortcut-row"><kbd>/</kbd> <span>Focus search bar</span></div>
-        <div class="shortcut-row"><kbd>Esc</kbd> <span>Exit fullscreen / Close modal</span></div>
+        <div class="shortcut-row"><kbd>←</kbd> or <kbd>A</kbd> / <kbd>K</kbd> <span data-i18n="shortcutPrev">Previous image</span></div>
+        <div class="shortcut-row"><kbd>→</kbd> or <kbd>D</kbd> / <kbd>J</kbd> <span data-i18n="shortcutNext">Next image</span></div>
+        <div class="shortcut-row"><kbd>Space</kbd> <span data-i18n="shortcutPlayPause">Play / Pause animated image</span></div>
+        <div class="shortcut-row"><kbd>F</kbd> <span data-i18n="shortcutFullscreen">Toggle Fullscreen</span></div>
+        <div class="shortcut-row"><kbd>0</kbd> <span data-i18n="shortcutFit">Fit image to screen</span></div>
+        <div class="shortcut-row"><kbd>1</kbd> <span data-i18n="shortcut100">100% Zoom (1:1)</span></div>
+        <div class="shortcut-row"><kbd>P</kbd> <span data-i18n="shortcutRenderMode">Toggle Nearest Neighbor (Pixel Art) / Smooth</span></div>
+        <div class="shortcut-row"><kbd>+</kbd> / <kbd>-</kbd> <span data-i18n="shortcutZoom">Zoom In / Out</span></div>
+        <div class="shortcut-row"><kbd>R</kbd> <span data-i18n="shortcutRotate">Rotate 90 degrees</span></div>
+        <div class="shortcut-row"><kbd>C</kbd> <span data-i18n="shortcutCopyPath">Copy file path to clipboard</span></div>
+        <div class="shortcut-row"><kbd>/</kbd> <span data-i18n="shortcutSearch">Focus search bar</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd> <span data-i18n="shortcutEsc">Exit fullscreen / Close modal</span></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-primary" id="btnCloseHelpBtn">Got it</button>
+        <button class="btn btn-primary" id="btnCloseHelpBtn" data-i18n="shortcutClose">Got it</button>
       </div>
     </div>
   </div>
@@ -194,61 +200,66 @@
   <div class="context-menu" id="contextMenu" style="display: none;">
     <div class="menu-item" id="ctxOpenFolder">
       <span class="menu-icon">📂</span>
-      <span class="menu-label" id="lblCtxOpenFolder">Open Containing Folder</span>
+      <span class="menu-label" id="lblCtxOpenFolder" data-i18n="ctxOpenFolder">Open Containing Folder</span>
     </div>
     <div class="menu-item" id="ctxOpenDefault">
       <span class="menu-icon">🚀</span>
-      <span class="menu-label" id="lblCtxOpenDefault">Open with Default App</span>
+      <span class="menu-label" id="lblCtxOpenDefault" data-i18n="ctxOpenDefault">Open with Default App</span>
     </div>
     <div class="menu-divider"></div>
     <div class="menu-item" id="ctxCopyImage">
       <span class="menu-icon">📋</span>
-      <span class="menu-label" id="lblCtxCopyImage">Copy Image to Clipboard</span>
+      <span class="menu-label" id="lblCtxCopyImage" data-i18n="ctxCopyImage">Copy Image to Clipboard</span>
     </div>
     <div class="menu-item" id="ctxCopyPath">
       <span class="menu-icon">🔗</span>
-      <span class="menu-label" id="lblCtxCopyPath">Copy File Path</span>
+      <span class="menu-label" id="lblCtxCopyPath" data-i18n="ctxCopyPath">Copy File Path</span>
       <span class="menu-shortcut">C</span>
     </div>
     <div class="menu-divider"></div>
     <div class="menu-item" id="ctxPlayPause">
       <span class="menu-icon" id="ctxPlayPauseIcon">⏯️</span>
-      <span class="menu-label" id="ctxPlayPauseLabel">Pause / Play</span>
+      <span class="menu-label" id="ctxPlayPauseLabel" data-i18n="ctxPlayPause">Pause / Play</span>
       <span class="menu-shortcut">Space</span>
     </div>
     <div class="menu-item" id="ctxRotate">
       <span class="menu-icon">🔄</span>
-      <span class="menu-label" id="lblCtxRotate">Rotate 90°</span>
+      <span class="menu-label" id="lblCtxRotate" data-i18n="ctxRotate">Rotate 90°</span>
       <span class="menu-shortcut">R</span>
     </div>
     <div class="menu-item" id="ctxFlipH">
       <span class="menu-icon">🪞</span>
-      <span class="menu-label" id="lblCtxFlipH">Flip Horizontal</span>
+      <span class="menu-label" id="lblCtxFlipH" data-i18n="ctxFlipH">Flip Horizontal</span>
     </div>
     <div class="menu-divider"></div>
+    <div class="menu-item" id="ctxRenderMode">
+      <span class="menu-icon" id="ctxRenderModeIcon">▦</span>
+      <span class="menu-label" id="lblCtxRenderMode" data-i18n="ctxRenderMode">Nearest Neighbor (Pixel Art)</span>
+      <span class="menu-shortcut">P</span>
+    </div>
     <div class="menu-item" id="ctxFitScreen">
       <span class="menu-icon">🔍</span>
-      <span class="menu-label" id="lblCtxFitScreen">Fit to Screen</span>
+      <span class="menu-label" id="lblCtxFitScreen" data-i18n="ctxFitScreen">Fit to Screen</span>
       <span class="menu-shortcut">0</span>
     </div>
     <div class="menu-item" id="ctxActualSize">
       <span class="menu-icon">1️⃣</span>
-      <span class="menu-label" id="lblCtxActualSize">Actual Size (100%)</span>
+      <span class="menu-label" id="lblCtxActualSize" data-i18n="ctxActualSize">Actual Size (100%)</span>
       <span class="menu-shortcut">1</span>
     </div>
     <div class="menu-item" id="ctxFullscreen">
       <span class="menu-icon">⛶</span>
-      <span class="menu-label" id="lblCtxFullscreen">Toggle Fullscreen</span>
+      <span class="menu-label" id="lblCtxFullscreen" data-i18n="ctxFullscreen">Toggle Fullscreen</span>
       <span class="menu-shortcut">F</span>
     </div>
     <div class="menu-divider"></div>
     <div class="menu-item" id="ctxProperties">
       <span class="menu-icon">ℹ️</span>
-      <span class="menu-label" id="lblCtxProperties">Image Properties</span>
+      <span class="menu-label" id="lblCtxProperties" data-i18n="ctxProperties">Image Properties</span>
     </div>
     <div class="menu-item menu-item-danger" id="ctxDelete">
       <span class="menu-icon">🗑️</span>
-      <span class="menu-label" id="lblCtxDelete">Delete Image</span>
+      <span class="menu-label" id="lblCtxDelete" data-i18n="ctxDelete">Delete Image</span>
       <span class="menu-shortcut">Del</span>
     </div>
   </div>
@@ -257,14 +268,14 @@
   <div class="modal-overlay" id="propsModal" style="display: none;">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="modalPropsTitle">Image Properties</h3>
+        <h3 id="modalPropsTitle" data-i18n="modalPropsTitle">Image Properties</h3>
         <button class="modal-close" id="btnClosePropsModal">✕</button>
       </div>
       <div class="modal-body props-body" id="propsBody">
         <!-- Rendered dynamically -->
       </div>
       <div class="modal-footer">
-        <button class="btn btn-primary" id="btnClosePropsBtn">Close</button>
+        <button class="btn btn-primary" id="btnClosePropsBtn" data-i18n="propClose">Close</button>
       </div>
     </div>
   </div>

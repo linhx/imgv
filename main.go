@@ -38,7 +38,7 @@ OPTIONS:
     -p, --port <port>       Port to listen on (default: auto-assign free port)
     --no-open               Do not automatically open the desktop app/browser
     --no-app                Open in default system browser instead of standalone app window
-    --keep-alive            Keep server running even after window is closed
+    --lang <en|vi>          Initial language ('en' or 'vi', default: en)
     -v, --version           Show version information
     -h, --help              Show this help message
 
@@ -86,6 +86,7 @@ func main() {
 	var noOpen bool
 	var noApp bool
 	var keepAlive bool
+	var lang string
 	var showVersion bool
 	var showHelp bool
 
@@ -102,6 +103,7 @@ func main() {
 	flag.BoolVar(&noOpen, "no-open", false, "Do not launch browser window")
 	flag.BoolVar(&noApp, "no-app", false, "Open in default browser instead of app window")
 	flag.BoolVar(&keepAlive, "keep-alive", false, "Keep server alive after window closes")
+	flag.StringVar(&lang, "lang", "", "Language ('en' or 'vi', default 'en')")
 	flag.BoolVar(&showVersion, "v", false, "Show version")
 	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.BoolVar(&showHelp, "h", false, "Show help")
@@ -210,6 +212,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if lang != "" {
+		appURL = fmt.Sprintf("%s?lang=%s", appURL, lang)
+	}
+
 	if foreground {
 		scanRes, _ := scanner.ScanDirectory(absDir, recursive)
 		total := 0
@@ -237,7 +243,9 @@ func main() {
 	// Launch desktop window or default browser
 	if !noOpen {
 		go func() {
-			_, _ = browser.LaunchApp(appURL, !noApp)
+			_, _ = browser.LaunchApp(appURL, !noApp, func() {
+				srv.TriggerShutdown()
+			})
 		}()
 	}
 
@@ -255,4 +263,6 @@ func main() {
 			fmt.Println("\n🪟 Window closed. Exiting imgv...")
 		}
 	}
+
+	os.Exit(0)
 }
