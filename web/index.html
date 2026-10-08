@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>imgv - Image Viewer</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
+</head>
+<body class="dark-theme">
+  <!-- Top Application Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-icon">🖼️</span>
+        <span class="logo-text">imgv</span>
+        <span class="badge badge-glow" id="headerAnimatedCount">0 anim</span>
+      </div>
+
+      <div class="folder-breadcrumb" id="folderBreadcrumb" title="Click to change folder">
+        <span class="folder-icon">📁</span>
+        <span class="folder-path" id="currentFolderPath">Loading...</span>
+        <button class="icon-btn-tiny" id="btnChangeFolder" title="Change folder">✏️</button>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search images... (Press '/' to focus)" autocomplete="off">
+        <button class="clear-search-btn" id="clearSearchBtn" style="display: none;">✕</button>
+      </div>
+
+      <div class="filter-pills" id="filterPills">
+        <button class="pill active" data-filter="all">All <span class="pill-count" id="countAll">0</span></button>
+        <button class="pill pill-anim" data-filter="animated">⚡ Animated <span class="pill-count" id="countAnim">0</span></button>
+        <button class="pill" data-filter="static">Static <span class="pill-count" id="countStatic">0</span></button>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <label class="toggle-control" title="Scan subdirectories">
+        <input type="checkbox" id="recursiveCheckbox">
+        <span class="toggle-label">Recursive</span>
+      </label>
+
+      <div class="sort-selector">
+        <select id="sortSelect">
+          <option value="name_asc">Name (A → Z)</option>
+          <option value="name_desc">Name (Z → A)</option>
+          <option value="date_desc">Date (Newest)</option>
+          <option value="date_asc">Date (Oldest)</option>
+          <option value="size_desc">Size (Largest)</option>
+          <option value="size_asc">Size (Smallest)</option>
+        </select>
+      </div>
+
+      <div class="view-toggles">
+        <button class="icon-btn active" id="btnViewSplit" title="Split View (Sidebar + Preview)">🗂️</button>
+        <button class="icon-btn" id="btnViewGrid" title="Grid View">⊞</button>
+      </div>
+
+      <button class="icon-btn" id="btnHelp" title="Keyboard Shortcuts (?)">⌨️</button>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="app-body" id="appBody">
+    <!-- Left Sidebar: Thumbnail List -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-stats">
+          <span id="filteredStats">0 of 0 images</span>
+        </div>
+        <div class="format-chips" id="formatChips"></div>
+      </div>
+
+      <div class="thumbnail-list" id="thumbnailList">
+        <!-- Rendered dynamically -->
+      </div>
+    </aside>
+
+    <!-- Center Preview Area -->
+    <section class="preview-stage" id="previewStage">
+      <!-- Top floating info bar -->
+      <div class="stage-top-bar" id="stageTopBar">
+        <div class="image-title-group">
+          <span class="image-name" id="previewImageName">Select an image</span>
+          <span class="badge" id="previewFormatBadge"></span>
+          <span class="badge badge-glow" id="previewAnimBadge" style="display: none;">⚡ ANIMATED</span>
+        </div>
+        <div class="stage-quick-stats" id="stageQuickStats">
+          <span id="previewDimensions">-</span>
+          <span class="divider">•</span>
+          <span id="previewFileSize">-</span>
+          <span class="divider">•</span>
+          <span id="previewIndex">-/-</span>
+        </div>
+      </div>
+
+      <!-- Viewport / Canvas for viewing, zoom & pan -->
+      <div class="viewport" id="viewport">
+        <div class="empty-placeholder" id="emptyPlaceholder">
+          <div class="empty-icon">📁</div>
+          <h3>No images to display</h3>
+          <p>Scan another folder or adjust your search filter</p>
+        </div>
+
+        <div class="canvas-container" id="canvasContainer">
+          <!-- Real <img> element that plays animated GIF/WebP/APNG/SVG automatically -->
+          <img id="previewImg" class="media-element" alt="" draggable="false">
+          <!-- Hidden canvas used for freezing animation frame on Pause -->
+          <canvas id="freezeCanvas" class="media-element" style="display: none;"></canvas>
+        </div>
+
+        <!-- Floating Navigation Chevrons -->
+        <button class="nav-arrow nav-prev" id="btnPrev" title="Previous Image (Left Arrow / A)">‹</button>
+        <button class="nav-arrow nav-next" id="btnNext" title="Next Image (Right Arrow / D)">›</button>
+
+        <!-- Floating Control Toolbar -->
+        <div class="floating-toolbar" id="floatingToolbar">
+          <button class="toolbar-btn" id="btnPlayPause" title="Play/Pause Animation (Space)">
+            <span id="playPauseIcon">⏸️</span>
+            <span class="btn-label" id="playPauseLabel">Pause</span>
+          </button>
+          <div class="toolbar-separator"></div>
+          <button class="toolbar-btn" id="btnZoomIn" title="Zoom In (+)">➕</button>
+          <button class="toolbar-btn" id="btnZoomOut" title="Zoom Out (-)">➖</button>
+          <button class="toolbar-btn" id="btnZoomFit" title="Fit to Screen (0)">Fit</button>
+          <button class="toolbar-btn" id="btnZoom100" title="Actual Size 1:1 (1)">1:1</button>
+          <div class="toolbar-separator"></div>
+          <button class="toolbar-btn" id="btnRotate" title="Rotate 90° (R)">🔄</button>
+          <button class="toolbar-btn" id="btnFullscreen" title="Fullscreen (F)">⛶</button>
+          <div class="toolbar-separator"></div>
+          <button class="toolbar-btn" id="btnCopyPath" title="Copy Path (C)">📋</button>
+          <button class="toolbar-btn" id="btnOpenSystem" title="Reveal in File Manager">📂</button>
+          <button class="toolbar-btn danger-hover" id="btnDelete" title="Delete Image">🗑️</button>
+        </div>
+      </div>
+
+      <!-- Bottom Thumbnail Rail (Filmstrip) -->
+      <div class="filmstrip-container" id="filmstripContainer">
+        <div class="filmstrip-track" id="filmstripTrack"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Folder Change Modal -->
+  <div class="modal-overlay" id="folderModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Change Folder</h3>
+        <button class="modal-close" id="btnCloseFolderModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <label for="newFolderPath">Enter folder path:</label>
+        <input type="text" id="newFolderPath" class="modal-input" placeholder="/path/to/images or .">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCancelFolderModal">Cancel</button>
+        <button class="btn btn-primary" id="btnSubmitFolder">Scan Folder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div class="modal-overlay" id="helpModal" style="display: none;">
+    <div class="modal-card help-card">
+      <div class="modal-header">
+        <h3>Keyboard Shortcuts</h3>
+        <button class="modal-close" id="btnCloseHelpModal">✕</button>
+      </div>
+      <div class="modal-body shortcuts-grid">
+        <div class="shortcut-row"><kbd>←</kbd> or <kbd>A</kbd> / <kbd>K</kbd> <span>Previous image</span></div>
+        <div class="shortcut-row"><kbd>→</kbd> or <kbd>D</kbd> / <kbd>J</kbd> <span>Next image</span></div>
+        <div class="shortcut-row"><kbd>Space</kbd> <span>Play / Pause animated image</span></div>
+        <div class="shortcut-row"><kbd>F</kbd> <span>Toggle Fullscreen</span></div>
+        <div class="shortcut-row"><kbd>0</kbd> <span>Fit image to screen</span></div>
+        <div class="shortcut-row"><kbd>1</kbd> <span>100% Zoom (1:1)</span></div>
+        <div class="shortcut-row"><kbd>+</kbd> / <kbd>-</kbd> <span>Zoom In / Out</span></div>
+        <div class="shortcut-row"><kbd>R</kbd> <span>Rotate 90 degrees</span></div>
+        <div class="shortcut-row"><kbd>C</kbd> <span>Copy file path to clipboard</span></div>
+        <div class="shortcut-row"><kbd>/</kbd> <span>Focus search bar</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd> <span>Exit fullscreen / Close modal</span></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btnCloseHelpBtn">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

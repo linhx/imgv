@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
+  <rect width="300" height="300" fill="#1e1e2f"/>
+  <circle cx="150" cy="150" r="50" fill="#3b82f6">
+    <animate attributeName="r" values="30;70;30" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="fill" values="#3b82f6;#ec4899;#3b82f6" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <text x="150" y="260" font-family="sans-serif" font-size="16" fill="#ffffff" text-anchor="middle">Animated SVG</text>
+</svg>
