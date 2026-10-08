@@ -11,15 +11,10 @@
 
 ---
 
-## 📸 Screenshots & Previews
+## 📸 Preview & Demo
 
-### 1. Split View Mode (Sidebar & Animation Player)
-![imgv Split View Preview](assets/preview-split.png)
-*Split View: Instant animated media playback (GIF, WebP, APNG, SVG) with timeline pause/freeze, detailed metadata HUD, and filmstrip thumbnail navigation.*
-
-### 2. Grid Gallery & Pixel Art Zoom Mode
-![imgv Grid View & Pixel Zoom Preview](assets/preview-grid.png)
-*Grid Gallery & Pixel Art Inspection: Infinite chunked grid view with Nearest-Neighbor interpolation (up to 50x zoom) preventing blur on retro icons and sprites.*
+![imgv Live Preview](assets/preview.gif)
+*Interactive Demo: High-speed directory browsing, instant animated playback, split & grid layout switching, and pixel-perfect inspection.*
 
 ---
 
