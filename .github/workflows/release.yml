@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+
+      - name: Build Cross-Platform Binaries
+        id: build
+        run: |
+          mkdir -p dist
+          TAG_NAME="${GITHUB_REF_NAME}"
+          VERSION="${TAG_NAME#v}"
+
+          PLATFORMS=(
+            "linux/amd64"
+            "linux/arm64"
+            "windows/amd64"
+            "windows/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+          )
+
+          for PLATFORM in "${PLATFORMS[@]}"; do
+            GOOS="${PLATFORM%/*}"
+            GOARCH="${PLATFORM#*/}"
+
+            OUTPUT_NAME="imgv"
+            if [ "$GOOS" = "windows" ]; then
+              OUTPUT_NAME="imgv.exe"
+            fi
+
+            BUILD_DIR="build_${GOOS}_${GOARCH}"
+            mkdir -p "$BUILD_DIR"
+
+            echo "📦 Building for $GOOS/$GOARCH..."
+            CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build \
+              -trimpath \
+              -ldflags="-s -w -X main.Version=${VERSION}" \
+              -o "$BUILD_DIR/$OUTPUT_NAME" .
+
+            # Include README
+            if [ -f README.md ]; then
+              cp README.md "$BUILD_DIR/"
+            fi
+
+            # Create archive
+            if [ "$GOOS" = "windows" ]; then
+              ARCHIVE_NAME="imgv_${VERSION}_${GOOS}_${GOARCH}.zip"
+              (cd "$BUILD_DIR" && zip -q -9 -r "../dist/$ARCHIVE_NAME" .)
+            else
+              ARCHIVE_NAME="imgv_${VERSION}_${GOOS}_${GOARCH}.tar.gz"
+              tar -czf "dist/$ARCHIVE_NAME" -C "$BUILD_DIR" .
+            fi
+
+            rm -rf "$BUILD_DIR"
+          done
+
+      - name: Generate Checksums
+        working-directory: dist
+        run: |
+          sha256sum * > checksums.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
