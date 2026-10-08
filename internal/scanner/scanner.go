@@ -10,9 +10,11 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,26 +27,47 @@ import (
 
 // SupportedExtensions maps lower-case extensions to canonical format name
 var SupportedExtensions = map[string]string{
-	".jpg":  "jpeg",
-	".jpeg": "jpeg",
-	".jfif": "jpeg",
+	".jpg":   "jpeg",
+	".jpeg":  "jpeg",
+	".jfif":  "jpeg",
 	".pjpeg": "jpeg",
-	".pjp":  "jpeg",
-	".png":  "png",
-	".apng": "apng",
-	".gif":  "gif",
-	".webp": "webp",
-	".svg":  "svg",
-	".svgz": "svg",
-	".bmp":  "bmp",
-	".ico":  "ico",
-	".cur":  "ico",
-	".avif": "avif",
-	".avis": "avif",
-	".tif":  "tiff",
-	".tiff": "tiff",
-	".heic": "heic",
-	".heif": "heif",
+	".pjp":   "jpeg",
+	".png":   "png",
+	".apng":  "apng",
+	".gif":   "gif",
+	".webp":  "webp",
+	".svg":   "svg",
+	".svgz":  "svg",
+	".bmp":   "bmp",
+	".ico":   "ico",
+	".cur":   "ico",
+	".avif":  "avif",
+	".avis":  "avif",
+	".tif":   "tiff",
+	".tiff":  "tiff",
+	".heic":  "heic",
+	".heif":  "heif",
+}
+
+// IgnoredDirectoryNames lists directories to skip during recursive scan to maximize speed
+var IgnoredDirectoryNames = map[string]bool{
+	".git":         true,
+	".svn":         true,
+	".hg":          true,
+	"node_modules": true,
+	".cache":       true,
+	".npm":         true,
+	".yarn":        true,
+	".cargo":       true,
+	".rustup":      true,
+	"vendor":       true,
+	"__pycache__":  true,
+	".thumbnails":  true,
+	".vscode":      true,
+	".idea":        true,
+	"$RECYCLE.BIN": true,
+	".Trash":       true,
+	".Trash-1000":  true,
 }
 
 // ImageItem holds all metadata for an image file
@@ -73,6 +96,18 @@ type ScanResult struct {
 	Items         []ImageItem `json:"items"`
 }
 
+// In-memory cache for fast rescans & repeated queries
+type cacheEntry struct {
+	size       int64
+	modNano    int64
+	item       ImageItem
+}
+
+var (
+	metaCacheMu sync.RWMutex
+	metaCache   = make(map[string]cacheEntry)
+)
+
 // IsImageFile returns whether the filename has a supported image extension
 func IsImageFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
@@ -86,7 +121,15 @@ func GenerateID(path string) string {
 	return hex.EncodeToString(h[:8])
 }
 
-// ScanDirectory scans a folder (optionally recursive) and collects image metadata
+type fileCandidate struct {
+	absPath string
+	relPath string
+	name    string
+	size    int64
+	modTime time.Time
+}
+
+// ScanDirectory scans a folder (flat or recursive) with high performance
 func ScanDirectory(rootDir string, recursive bool) (*ScanResult, error) {
 	absRoot, err := filepath.Abs(rootDir)
 	if err != nil {
@@ -101,26 +144,35 @@ func ScanDirectory(rootDir string, recursive bool) (*ScanResult, error) {
 		return nil, os.ErrInvalid
 	}
 
-	type fileCandidate struct {
-		absPath string
-		relPath string
-		info    os.FileInfo
-	}
-
 	var candidates []fileCandidate
 
 	if recursive {
-		err = filepath.Walk(absRoot, func(p string, fi os.FileInfo, err error) error {
+		// Use filepath.WalkDir for optimal speed (avoids stat calls on non-matches)
+		err = filepath.WalkDir(absRoot, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil // Skip unreadable paths
 			}
-			if !fi.IsDir() && IsImageFile(p) {
+			if d.IsDir() {
+				// Skip high-noise directories
+				if p != absRoot && IgnoredDirectoryNames[d.Name()] {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
+			name := d.Name()
+			if IsImageFile(name) {
 				rel, _ := filepath.Rel(absRoot, p)
-				candidates = append(candidates, fileCandidate{
-					absPath: p,
-					relPath: rel,
-					info:    fi,
-				})
+				fi, err := d.Info()
+				if err == nil {
+					candidates = append(candidates, fileCandidate{
+						absPath: p,
+						relPath: rel,
+						name:    name,
+						size:    fi.Size(),
+						modTime: fi.ModTime(),
+					})
+				}
 			}
 			return nil
 		})
@@ -139,34 +191,41 @@ func ScanDirectory(rootDir string, recursive bool) (*ScanResult, error) {
 					candidates = append(candidates, fileCandidate{
 						absPath: filepath.Join(absRoot, entry.Name()),
 						relPath: entry.Name(),
-						info:    fi,
+						name:    entry.Name(),
+						size:    fi.Size(),
+						modTime: fi.ModTime(),
 					})
 				}
 			}
 		}
 	}
 
-	// Concurrently process metadata with a worker pool
-	workerCount := 16
-	if len(candidates) < workerCount {
-		workerCount = len(candidates)
+	// Concurrently process metadata with bounded worker pool
+	numWorkers := runtime.NumCPU() * 4
+	if numWorkers < 8 {
+		numWorkers = 8
 	}
-	if workerCount <= 0 {
-		workerCount = 1
+	if numWorkers > 32 {
+		numWorkers = 32
+	}
+	if len(candidates) < numWorkers {
+		numWorkers = len(candidates)
+	}
+	if numWorkers <= 0 {
+		numWorkers = 1
 	}
 
 	items := make([]ImageItem, len(candidates))
 	var wg sync.WaitGroup
 	ch := make(chan int, len(candidates))
 
-	for i := 0; i < workerCount; i++ {
+	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for idx := range ch {
 				c := candidates[idx]
-				item := inspectImage(c.absPath, c.relPath, c.info)
-				items[idx] = item
+				items[idx] = inspectImageFast(c)
 			}
 		}()
 	}
@@ -204,86 +263,95 @@ func ScanDirectory(rootDir string, recursive bool) (*ScanResult, error) {
 	}, nil
 }
 
-// inspectImage determines format, animation state, and dimensions
-func inspectImage(absPath string, relPath string, fi os.FileInfo) ImageItem {
-	ext := strings.ToLower(filepath.Ext(absPath))
+// inspectImageFast checks in-memory cache first, skips unnecessary I/O for static formats
+func inspectImageFast(c fileCandidate) ImageItem {
+	// Check memory cache
+	metaCacheMu.RLock()
+	cached, ok := metaCache[c.absPath]
+	metaCacheMu.RUnlock()
+
+	if ok && cached.size == c.size && cached.modNano == c.modTime.UnixNano() {
+		return cached.item
+	}
+
+	ext := strings.ToLower(filepath.Ext(c.absPath))
 	format := SupportedExtensions[ext]
 	if format == "" {
 		format = strings.TrimPrefix(ext, ".")
 	}
 
 	item := ImageItem{
-		ID:      GenerateID(absPath),
-		Name:    fi.Name(),
-		Path:    absPath,
-		RelPath: relPath,
-		Size:    fi.Size(),
-		ModTime: fi.ModTime(),
+		ID:      GenerateID(c.absPath),
+		Name:    c.name,
+		Path:    c.absPath,
+		RelPath: c.relPath,
+		Size:    c.size,
+		ModTime: c.modTime,
 		Ext:     ext,
 		Format:  format,
 	}
 
-	// Open file to inspect header and dimensions
-	f, err := os.Open(absPath)
-	if err != nil {
-		return item
-	}
-	defer f.Close()
-
-	// Detect animation & dimensions
+	// Optimize: JPG, JPEG, BMP, TIFF, ICO are GUARANTEED static! Zero animation check needed!
 	switch format {
-	case "gif":
-		item.IsAnimated = checkAnimatedGIF(f)
-		_ , _ = f.Seek(0, io.SeekStart)
-		if cfg, _, err := image.DecodeConfig(f); err == nil {
-			item.Width = cfg.Width
-			item.Height = cfg.Height
-		}
+	case "jpeg", "bmp", "tiff", "ico", "heic", "heif":
+		item.IsAnimated = false
+		// Read dimensions quickly
+		item.Width, item.Height = readDimensions(c.absPath, format)
 
-	case "webp":
-		isAnim, w, h := inspectWebP(f)
-		item.IsAnimated = isAnim
-		item.Width = w
-		item.Height = h
-		if item.Width == 0 || item.Height == 0 {
+	case "gif":
+		// Scan GIF blocks
+		f, err := os.Open(c.absPath)
+		if err == nil {
+			item.IsAnimated = checkAnimatedGIF(f)
 			_, _ = f.Seek(0, io.SeekStart)
-			if cfg, err := webp.DecodeConfig(f); err == nil {
+			if cfg, _, err := image.DecodeConfig(f); err == nil {
 				item.Width = cfg.Width
 				item.Height = cfg.Height
 			}
+			_ = f.Close()
+		}
+
+	case "webp":
+		f, err := os.Open(c.absPath)
+		if err == nil {
+			isAnim, w, h := inspectWebP(f)
+			item.IsAnimated = isAnim
+			item.Width = w
+			item.Height = h
+			if item.Width == 0 || item.Height == 0 {
+				_, _ = f.Seek(0, io.SeekStart)
+				if cfg, err := webp.DecodeConfig(f); err == nil {
+					item.Width = cfg.Width
+					item.Height = cfg.Height
+				}
+			}
+			_ = f.Close()
 		}
 
 	case "png", "apng":
-		item.IsAnimated = checkAnimatedPNG(f)
-		if item.IsAnimated {
-			item.Format = "apng"
-		}
-		_, _ = f.Seek(0, io.SeekStart)
-		if cfg, _, err := image.DecodeConfig(f); err == nil {
-			item.Width = cfg.Width
-			item.Height = cfg.Height
+		f, err := os.Open(c.absPath)
+		if err == nil {
+			item.IsAnimated = checkAnimatedPNG(f)
+			if item.IsAnimated {
+				item.Format = "apng"
+			}
+			_, _ = f.Seek(0, io.SeekStart)
+			if cfg, _, err := image.DecodeConfig(f); err == nil {
+				item.Width = cfg.Width
+				item.Height = cfg.Height
+			}
+			_ = f.Close()
 		}
 
 	case "svg":
-		item.IsAnimated = checkAnimatedSVG(absPath)
-		w, h := parseSVGDimensions(absPath)
-		item.Width = w
-		item.Height = h
+		item.IsAnimated = checkAnimatedSVG(c.absPath)
+		item.Width, item.Height = parseSVGDimensions(c.absPath)
 
 	case "avif":
-		item.IsAnimated = checkAnimatedAVIF(f)
-		// AVIF dimensions will be resolved in browser or fallback
-
-	case "jpeg":
-		if cfg, _, err := image.DecodeConfig(f); err == nil {
-			item.Width = cfg.Width
-			item.Height = cfg.Height
-		}
-
-	case "bmp", "tiff":
-		if cfg, _, err := image.DecodeConfig(f); err == nil {
-			item.Width = cfg.Width
-			item.Height = cfg.Height
+		f, err := os.Open(c.absPath)
+		if err == nil {
+			item.IsAnimated = checkAnimatedAVIF(f)
+			_ = f.Close()
 		}
 	}
 
@@ -291,7 +359,31 @@ func inspectImage(absPath string, relPath string, fi os.FileInfo) ImageItem {
 		item.AspectRatio = float64(item.Width) / float64(item.Height)
 	}
 
+	// Cache result
+	metaCacheMu.Lock()
+	metaCache[c.absPath] = cacheEntry{
+		size:    c.size,
+		modNano: c.modTime.UnixNano(),
+		item:    item,
+	}
+	metaCacheMu.Unlock()
+
 	return item
+}
+
+// readDimensions extracts image dimensions with minimal reads
+func readDimensions(filePath string, format string) (int, int) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return 0, 0
+	}
+	defer f.Close()
+
+	cfg, _, err := image.DecodeConfig(f)
+	if err == nil {
+		return cfg.Width, cfg.Height
+	}
+	return 0, 0
 }
 
 // checkAnimatedGIF checks whether a GIF contains more than one image descriptor
@@ -396,7 +488,6 @@ func inspectWebP(r io.Reader) (isAnimated bool, width int, height int) {
 	if chunk == "VP8X" {
 		flags := header[20]
 		isAnimated = (flags & 0x02) != 0 // Bit 1: Animation
-		// Canvas width is 24-bit little endian at bytes 24-26 (+ 1)
 		width = 1 + int(header[24]) | (int(header[25]) << 8) | (int(header[26]) << 16)
 		height = 1 + int(header[27]) | (int(header[28]) << 8) | (int(header[29]) << 16)
 	}
@@ -414,7 +505,7 @@ func checkAnimatedPNG(r io.Reader) bool {
 	}
 
 	for {
-		var chunkHdr [8]byte // 4 bytes length, 4 bytes name
+		var chunkHdr [8]byte
 		if _, err := io.ReadFull(r, chunkHdr[:]); err != nil {
 			break
 		}
@@ -443,7 +534,7 @@ func checkAnimatedSVG(filePath string) bool {
 	}
 	defer f.Close()
 
-	buf := make([]byte, 64*1024)
+	buf := make([]byte, 16*1024)
 	n, _ := f.Read(buf)
 	content := strings.ToLower(string(buf[:n]))
 
@@ -462,11 +553,10 @@ func parseSVGDimensions(filePath string) (int, int) {
 	}
 	defer f.Close()
 
-	buf := make([]byte, 8192)
+	buf := make([]byte, 4096)
 	n, _ := f.Read(buf)
 	content := string(buf[:n])
 
-	// Try viewBox first: viewBox="0 0 800 600"
 	vbRe := regexp.MustCompile(`(?i)viewBox\s*=\s*["']\s*([0-9\.\-]+)\s+([0-9\.\-]+)\s+([0-9\.\-]+)\s+([0-9\.\-]+)`)
 	if match := vbRe.FindStringSubmatch(content); len(match) == 5 {
 		w, _ := strconv.ParseFloat(match[3], 64)
@@ -476,7 +566,6 @@ func parseSVGDimensions(filePath string) (int, int) {
 		}
 	}
 
-	// Try width and height attributes: width="800" height="600"
 	wRe := regexp.MustCompile(`(?i)\bwidth\s*=\s*["']([0-9]+)`)
 	hRe := regexp.MustCompile(`(?i)\bheight\s*=\s*["']([0-9]+)`)
 	wMatch := wRe.FindStringSubmatch(content)
@@ -490,7 +579,7 @@ func parseSVGDimensions(filePath string) (int, int) {
 	return 0, 0
 }
 
-// checkAnimatedAVIF checks if AVIF file contains 'avis' brand or tracks
+// checkAnimatedAVIF checks if AVIF file contains 'avis' brand
 func checkAnimatedAVIF(r io.Reader) bool {
 	var buf [4096]byte
 	n, err := r.Read(buf[:])

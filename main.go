@@ -28,21 +28,24 @@ USAGE:
     imgv [OPTIONS] [DIRECTORY]
 
 ARGUMENTS:
-    [DIRECTORY]      Target directory containing images (default: current directory ".")
+    [DIRECTORY]          Target directory containing images (default: current directory ".")
 
 OPTIONS:
-    -p, --port       Port to listen on (default: auto-assign free port)
-    -r, --recursive  Recursively scan all subdirectories
-    --no-open        Do not automatically open the desktop app/browser
-    --no-app         Open in default system browser instead of standalone app window
-    --keep-alive     Keep server running even after window is closed
-    -v, --version    Show version information
-    -h, --help       Show this help message
+    --flat, --no-recursive  Scan only the top-level directory (non-recursive)
+    -p, --port <port>       Port to listen on (default: auto-assign free port)
+    --no-open               Do not automatically open the desktop app/browser
+    --no-app                Open in default system browser instead of standalone app window
+    --keep-alive            Keep server running even after window is closed
+    -v, --version           Show version information
+    -h, --help              Show this help message
+
+NOTE:
+    Recursive scan is ENABLED by default. Use --flat or --no-recursive to disable.
 
 EXAMPLES:
-    imgv .                  # View all images in the current folder
-    imgv ~/Pictures         # View images in ~/Pictures
-    imgv -r /path/to/folder # View all images including subfolders
+    imgv .                  # View all images recursively in current folder
+    imgv ~/Pictures         # View all images recursively in ~/Pictures
+    imgv --flat /path/to    # View only images in /path/to without subfolders
     imgv -p 8080 --no-open  # Run as a local web server on port 8080
 `, Version)
 }
@@ -71,7 +74,8 @@ func expandHomeDir(path string) string {
 
 func main() {
 	var port int
-	var recursive bool
+	var flat bool
+	var recursiveDummy bool
 	var noOpen bool
 	var noApp bool
 	var keepAlive bool
@@ -80,8 +84,11 @@ func main() {
 
 	flag.IntVar(&port, "p", 0, "Port to listen on")
 	flag.IntVar(&port, "port", 0, "Port to listen on")
-	flag.BoolVar(&recursive, "r", false, "Recursively scan subdirectories")
-	flag.BoolVar(&recursive, "recursive", false, "Recursively scan subdirectories")
+	flag.BoolVar(&flat, "flat", false, "Scan only top-level directory (non-recursive)")
+	flag.BoolVar(&flat, "no-recursive", false, "Scan only top-level directory (non-recursive)")
+	flag.BoolVar(&flat, "nr", false, "Scan only top-level directory (non-recursive)")
+	flag.BoolVar(&recursiveDummy, "r", true, "Recursive scan (enabled by default)")
+	flag.BoolVar(&recursiveDummy, "recursive", true, "Recursive scan (enabled by default)")
 	flag.BoolVar(&noOpen, "no-open", false, "Do not launch browser window")
 	flag.BoolVar(&noApp, "no-app", false, "Open in default browser instead of app window")
 	flag.BoolVar(&keepAlive, "keep-alive", false, "Keep server alive after window closes")
@@ -102,6 +109,8 @@ func main() {
 		fmt.Printf("imgv version %s\n", Version)
 		return
 	}
+
+	recursive := !flat
 
 	targetDir := "."
 	args := flag.Args()

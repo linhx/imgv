@@ -1,5 +1,6 @@
 /**
- * imgv - Image Viewer Client Application
+ * imgv - High-Performance Image Viewer Client Application
+ * Optimized for massive directories (tens of thousands of images) with Virtual Scrolling
  */
 
 // Application State
@@ -12,7 +13,7 @@ const state = {
   activeFormatFilter: null,
   searchQuery: "",
   sortBy: "name_asc",
-  recursive: false,
+  recursive: true,
   viewMode: "split", // "split", "grid"
 
   // Viewport / Zoom & Pan State
@@ -25,7 +26,17 @@ const state = {
   startX: 0,
   startY: 0,
   isPaused: false,
+
+  // Grid chunking
+  gridLoadedCount: 120,
 };
+
+// Virtual scrolling constants
+const VIRTUAL_ITEM_HEIGHT = 66; // 60px card + 6px gap
+let virtualSpacer = null;
+let virtualContainer = null;
+let isUpdatingVirtual = false;
+let searchDebounceTimer = null;
 
 // DOM Elements Cache
 const DOM = {
@@ -107,7 +118,7 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-function showToast(message, duration = 2500) {
+function showToast(message, duration = 2200) {
   DOM.toast.textContent = message;
   DOM.toast.classList.add("show");
   setTimeout(() => {
@@ -178,7 +189,7 @@ function renderFormatChips(formats) {
 
 // Filter and Sort Pipeline
 function applyFiltersAndSort() {
-  let list = [...state.images];
+  let list = state.images;
 
   // 1. Filter by Animation State
   if (state.activeFilter === "animated") {
@@ -189,7 +200,8 @@ function applyFiltersAndSort() {
 
   // 2. Filter by Format Chip
   if (state.activeFormatFilter) {
-    list = list.filter((img) => img.format.toLowerCase() === state.activeFormatFilter.toLowerCase());
+    const fmt = state.activeFormatFilter.toLowerCase();
+    list = list.filter((img) => img.format.toLowerCase() === fmt);
   }
 
   // 3. Filter by Search Query
@@ -198,30 +210,34 @@ function applyFiltersAndSort() {
     list = list.filter((img) => img.name.toLowerCase().includes(q) || img.rel_path.toLowerCase().includes(q));
   }
 
-  // 4. Sort
-  list.sort((a, b) => {
-    switch (state.sortBy) {
-      case "name_asc":
-        return a.name.localeCompare(b.name, undefined, { numeric: true });
-      case "name_desc":
-        return b.name.localeCompare(a.name, undefined, { numeric: true });
-      case "date_desc":
-        return new Date(b.mod_time) - new Date(a.mod_time);
-      case "date_asc":
-        return new Date(a.mod_time) - new Date(b.mod_time);
-      case "size_desc":
-        return b.size - a.size;
-      case "size_asc":
-        return a.size - b.size;
-      default:
-        return 0;
-    }
-  });
+  // 4. Sort (shallow clone before sorting)
+  list = [...list];
+  switch (state.sortBy) {
+    case "name_asc":
+      list.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      break;
+    case "name_desc":
+      list.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }));
+      break;
+    case "date_desc":
+      list.sort((a, b) => new Date(b.mod_time) - new Date(a.mod_time));
+      break;
+    case "date_asc":
+      list.sort((a, b) => new Date(a.mod_time) - new Date(b.mod_time));
+      break;
+    case "size_desc":
+      list.sort((a, b) => b.size - a.size);
+      break;
+    case "size_asc":
+      list.sort((a, b) => a.size - b.size);
+      break;
+  }
 
   state.filteredImages = list;
-  DOM.filteredStats.textContent = `${list.length} of ${state.images.length} images`;
+  state.gridLoadedCount = 120; // reset grid chunk
+  DOM.filteredStats.textContent = `${list.length.toLocaleString()} of ${state.images.length.toLocaleString()} images`;
 
-  renderThumbnailList();
+  initVirtualList();
   renderFilmstrip();
 
   if (state.viewMode === "grid") {
@@ -240,14 +256,54 @@ function applyFiltersAndSort() {
   }
 }
 
-// Render Sidebar Thumbnail List
-function renderThumbnailList() {
+// Initialize Virtual Scrolling Containers
+function initVirtualList() {
   DOM.thumbnailList.innerHTML = "";
 
-  state.filteredImages.forEach((img, index) => {
+  virtualSpacer = document.createElement("div");
+  virtualSpacer.className = "virtual-spacer";
+  virtualSpacer.style.height = `${state.filteredImages.length * VIRTUAL_ITEM_HEIGHT}px`;
+
+  virtualContainer = document.createElement("div");
+  virtualContainer.className = "virtual-items-container";
+
+  DOM.thumbnailList.appendChild(virtualSpacer);
+  DOM.thumbnailList.appendChild(virtualContainer);
+
+  updateVirtualList();
+}
+
+// Update visible items inside Virtual Scrolling Window
+function updateVirtualList() {
+  if (!virtualContainer || !virtualSpacer) return;
+
+  const total = state.filteredImages.length;
+  virtualSpacer.style.height = `${total * VIRTUAL_ITEM_HEIGHT}px`;
+
+  if (total === 0) {
+    virtualContainer.innerHTML = "";
+    return;
+  }
+
+  const scrollTop = DOM.thumbnailList.scrollTop;
+  const viewportHeight = DOM.thumbnailList.clientHeight || 600;
+
+  // Buffer of 6 items above and below
+  const startIndex = Math.max(0, Math.floor(scrollTop / VIRTUAL_ITEM_HEIGHT) - 6);
+  const endIndex = Math.min(total - 1, Math.ceil((scrollTop + viewportHeight) / VIRTUAL_ITEM_HEIGHT) + 6);
+
+  virtualContainer.style.transform = `translateY(${startIndex * VIRTUAL_ITEM_HEIGHT}px)`;
+
+  // Render only visible slice
+  let fragment = document.createDocumentFragment();
+
+  for (let i = startIndex; i <= endIndex; i++) {
+    const img = state.filteredImages[i];
+    const isSelected = i === state.currentIndex;
+
     const card = document.createElement("div");
-    card.className = `thumb-card ${img.is_animated ? "anim-card" : ""}`;
-    card.dataset.index = index;
+    card.className = `thumb-card ${img.is_animated ? "anim-card" : ""} ${isSelected ? "active" : ""}`;
+    card.dataset.index = i;
 
     const fileUrl = `/api/file?path=${encodeURIComponent(img.path)}`;
 
@@ -267,32 +323,63 @@ function renderThumbnailList() {
     `;
 
     card.addEventListener("click", () => {
-      selectImage(index);
+      selectImage(i);
     });
 
-    DOM.thumbnailList.appendChild(card);
+    fragment.appendChild(card);
+  }
+
+  virtualContainer.innerHTML = "";
+  virtualContainer.appendChild(fragment);
+}
+
+// Throttled Scroll Listener for Virtual List
+function onVirtualScroll() {
+  if (isUpdatingVirtual) return;
+  isUpdatingVirtual = true;
+  requestAnimationFrame(() => {
+    updateVirtualList();
+    isUpdatingVirtual = false;
   });
 }
 
-// Render Bottom Filmstrip Rail
+// Render Windowed Bottom Filmstrip (Renders at most 25 items around current selection)
 function renderFilmstrip() {
   DOM.filmstripTrack.innerHTML = "";
+  const total = state.filteredImages.length;
+  if (total === 0) return;
 
-  state.filteredImages.forEach((img, index) => {
+  const current = Math.max(0, state.currentIndex);
+  const windowRadius = 14;
+  const start = Math.max(0, current - windowRadius);
+  const end = Math.min(total - 1, current + windowRadius);
+
+  const fragment = document.createDocumentFragment();
+
+  for (let i = start; i <= end; i++) {
+    const img = state.filteredImages[i];
     const thumb = document.createElement("div");
-    thumb.className = `filmstrip-thumb ${img.is_animated ? "anim-thumb" : ""}`;
-    thumb.dataset.index = index;
-    thumb.title = img.name;
+    thumb.className = `filmstrip-thumb ${img.is_animated ? "anim-thumb" : ""} ${i === current ? "active" : ""}`;
+    thumb.dataset.index = i;
+    thumb.title = `${img.name} (${i + 1}/${total})`;
 
     const fileUrl = `/api/file?path=${encodeURIComponent(img.path)}`;
     thumb.innerHTML = `<img src="${fileUrl}" loading="lazy" alt="${img.name}" />`;
 
     thumb.addEventListener("click", () => {
-      selectImage(index);
+      selectImage(i);
     });
 
-    DOM.filmstripTrack.appendChild(thumb);
-  });
+    fragment.appendChild(thumb);
+  }
+
+  DOM.filmstripTrack.appendChild(fragment);
+
+  // Scroll active thumb to center smoothly
+  const activeThumb = DOM.filmstripTrack.querySelector(`[data-index="${current}"]`);
+  if (activeThumb) {
+    activeThumb.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
 }
 
 // Select and Display Active Image
@@ -324,9 +411,9 @@ function selectImage(index) {
   DOM.previewImageName.title = img.path;
   DOM.previewFormatBadge.textContent = img.format;
   DOM.previewAnimBadge.style.display = img.is_animated ? "inline-block" : "none";
-  DOM.previewDimensions.textContent = img.width && img.height ? `${img.width} × ${img.height} px` : "Vector / Dynamic";
+  DOM.previewDimensions.textContent = img.width && img.height ? `${img.width} × ${img.height} px` : "Dynamic";
   DOM.previewFileSize.textContent = formatBytes(img.size);
-  DOM.previewIndex.textContent = `${index + 1} / ${state.filteredImages.length}`;
+  DOM.previewIndex.textContent = `${(index + 1).toLocaleString()} / ${state.filteredImages.length.toLocaleString()}`;
 
   // Reset Pause state
   state.isPaused = false;
@@ -336,30 +423,28 @@ function selectImage(index) {
   DOM.playPauseLabel.textContent = "Pause";
   DOM.btnPlayPause.style.display = img.is_animated ? "flex" : "none";
 
-  // Set Image Source (Blink automatically plays animated GIF, WebP, APNG, SVG)
+  // Set Image Source
   const fileUrl = `/api/file?path=${encodeURIComponent(img.path)}`;
   DOM.previewImg.src = fileUrl;
 
-  // Once image loads, fit to viewport
   DOM.previewImg.onload = () => {
     resetTransform();
     fitToViewport();
   };
 
-  // Update Active Indicators in Sidebar and Filmstrip
-  document.querySelectorAll(".thumb-card").forEach((c) => c.classList.remove("active"));
-  const activeCard = DOM.thumbnailList.querySelector(`[data-index="${index}"]`);
-  if (activeCard) {
-    activeCard.classList.add("active");
-    activeCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  // Scroll virtual list to keep active card in view
+  const targetTop = index * VIRTUAL_ITEM_HEIGHT;
+  const currentScroll = DOM.thumbnailList.scrollTop;
+  const clientHeight = DOM.thumbnailList.clientHeight;
+
+  if (targetTop < currentScroll) {
+    DOM.thumbnailList.scrollTop = targetTop;
+  } else if (targetTop + VIRTUAL_ITEM_HEIGHT > currentScroll + clientHeight) {
+    DOM.thumbnailList.scrollTop = targetTop + VIRTUAL_ITEM_HEIGHT - clientHeight;
   }
 
-  document.querySelectorAll(".filmstrip-thumb").forEach((t) => t.classList.remove("active"));
-  const activeThumb = DOM.filmstripTrack.querySelector(`[data-index="${index}"]`);
-  if (activeThumb) {
-    activeThumb.classList.add("active");
-    activeThumb.scrollIntoView({ behavior: "smooth", inline: "center" });
-  }
+  updateVirtualList();
+  renderFilmstrip();
 }
 
 // Animation Freeze / Playback Toggle
@@ -368,7 +453,7 @@ function togglePlayPause() {
   if (!current || !current.is_animated) return;
 
   if (!state.isPaused) {
-    // Freeze current frame by capturing into canvas
+    // Freeze frame by drawing onto canvas
     const img = DOM.previewImg;
     const canvas = DOM.freezeCanvas;
     canvas.width = img.naturalWidth || img.clientWidth || 300;
@@ -426,14 +511,13 @@ function fitToViewport() {
 
   if (imgW === 0 || imgH === 0) return;
 
-  // Margin padding
   const pad = 40;
   const availW = vpRect.width - pad;
   const availH = vpRect.height - pad;
 
   const scaleW = availW / imgW;
   const scaleH = availH / imgH;
-  const fit = Math.min(scaleW, scaleH, 1); // Don't upscale past 100% on initial fit unless requested
+  const fit = Math.min(scaleW, scaleH, 1);
 
   state.scale = fit;
   state.fitScale = fit;
@@ -526,7 +610,6 @@ async function deleteCurrentImage() {
     });
     if (res.ok) {
       showToast(`Deleted ${current.name}`);
-      // Remove from lists
       state.images = state.images.filter((img) => img.path !== current.path);
       applyFiltersAndSort();
     } else {
@@ -537,7 +620,7 @@ async function deleteCurrentImage() {
   }
 }
 
-// Grid View Renderer
+// Chunked Infinite Grid Gallery (Prevents freezing with thousands of images)
 function renderGridGallery() {
   let gridContainer = document.getElementById("gridGalleryContainer");
   if (!gridContainer) {
@@ -545,10 +628,28 @@ function renderGridGallery() {
     gridContainer.id = "gridGalleryContainer";
     gridContainer.className = "grid-gallery-container";
     DOM.appBody.appendChild(gridContainer);
+
+    gridContainer.addEventListener("scroll", () => {
+      if (gridContainer.scrollTop + gridContainer.clientHeight >= gridContainer.scrollHeight - 350) {
+        if (state.gridLoadedCount < state.filteredImages.length) {
+          state.gridLoadedCount += 80;
+          appendGridCards(gridContainer);
+        }
+      }
+    });
   }
 
   gridContainer.innerHTML = "";
-  state.filteredImages.forEach((img, index) => {
+  appendGridCards(gridContainer);
+}
+
+function appendGridCards(gridContainer) {
+  const start = gridContainer.children.length;
+  const end = Math.min(state.gridLoadedCount, state.filteredImages.length);
+  const fragment = document.createDocumentFragment();
+
+  for (let i = start; i < end; i++) {
+    const img = state.filteredImages[i];
     const card = document.createElement("div");
     card.className = "grid-card";
     const fileUrl = `/api/file?path=${encodeURIComponent(img.path)}`;
@@ -566,13 +667,14 @@ function renderGridGallery() {
     `;
 
     card.addEventListener("click", () => {
-      // Switch to split view and select this image
       setViewMode("split");
-      selectImage(index);
+      selectImage(i);
     });
 
-    gridContainer.appendChild(card);
-  });
+    fragment.appendChild(card);
+  }
+
+  gridContainer.appendChild(fragment);
 }
 
 function setViewMode(mode) {
@@ -588,6 +690,7 @@ function setViewMode(mode) {
     DOM.btnViewGrid.classList.remove("active");
     const grid = document.getElementById("gridGalleryContainer");
     if (grid) grid.remove();
+    updateVirtualList();
   }
 }
 
@@ -596,7 +699,6 @@ function setupViewportInteractions() {
   const vp = DOM.viewport;
 
   vp.addEventListener("mousedown", (e) => {
-    // Only drag with left mouse button when not clicking toolbar
     if (e.button !== 0 || e.target.closest(".floating-toolbar") || e.target.closest(".nav-arrow")) return;
     state.isPanning = true;
     state.startX = e.clientX - state.panX;
@@ -638,7 +740,6 @@ function setupViewportInteractions() {
 // Keyboard Shortcuts Listener
 function setupKeyboardNavigation() {
   window.addEventListener("keydown", (e) => {
-    // Don't intercept if user is typing in inputs
     if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") {
       if (e.key === "Escape") {
         e.target.blur();
@@ -751,11 +852,14 @@ function setupEventListeners() {
   DOM.btnOpenSystem.addEventListener("click", openInSystem);
   DOM.btnDelete.addEventListener("click", deleteCurrentImage);
 
-  // Search Box
+  // Search Box (Debounced for large lists)
   DOM.searchInput.addEventListener("input", (e) => {
     state.searchQuery = e.target.value;
     DOM.clearSearchBtn.style.display = state.searchQuery ? "block" : "none";
-    applyFiltersAndSort();
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      applyFiltersAndSort();
+    }, 120);
   });
 
   DOM.clearSearchBtn.addEventListener("click", () => {
@@ -789,6 +893,9 @@ function setupEventListeners() {
   // View Mode Toggles
   DOM.btnViewSplit.addEventListener("click", () => setViewMode("split"));
   DOM.btnViewGrid.addEventListener("click", () => setViewMode("grid"));
+
+  // Virtual Scrolling on Sidebar
+  DOM.thumbnailList.addEventListener("scroll", onVirtualScroll);
 
   // Change Folder Modal
   const openFolderModal = () => {

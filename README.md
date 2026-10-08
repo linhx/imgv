@@ -12,7 +12,13 @@
 2. **Preview động ngay lập tức**:
    - Khi chọn ảnh, chế độ preview tự động phát ảnh động mượt mà ở đúng tốc độ khung hình gốc.
    - Hỗ trợ nút **Pause / Play** (đóng băng frame hiện tại bằng Canvas hoặc tiếp tục phát) chỉ với 1 phím `Space`.
-3. **CLI trực quan**:
+3. **Tối ưu siêu tốc cho thư mục khổng lồ (Recursive & Tens of thousands of images)**:
+   - **Backend**: Sử dụng `filepath.WalkDir` để quét cây thư mục mà không tốn syscall `stat`, tự động bỏ qua các thư mục rác/mã nguồn (`.git`, `node_modules`, `vendor`, `.cache`...).
+   - **Zero I/O Animation Check**: Nhận diện tức thì các định dạng tĩnh (`JPEG`, `BMP`, `TIFF`, `ICO`) mà không cần mở file. Chỉ kiểm tra chunk animation ở các file có thể động (`GIF`, `WebP VP8X`, `APNG`).
+   - **Bounded Concurrency & Cache**: Worker pool đa luồng giới hạn tránh cạn kiệt file descriptors của OS, kết hợp bộ nhớ cache RAM cho các lần duyệt lại trong mili-giây.
+   - **Frontend Virtual Scrolling**: Dù có 50.000+ ảnh, danh sách bên trái chỉ render ~20 DOM items hiển thị trên màn hình. Trình duyệt cuộn mượt 60/120 FPS, không lag, không tốn RAM.
+   - **Filmstrip Windowed Rail**: Thanh thumbnail chỉ tải cửa sổ lân cận ảnh đang chọn, không kéo cả thư mục khổng lồ vào DOM.
+4. **CLI trực quan**:
    - Chạy trực tiếp với folder: `imgv .` hoặc `imgv /path/to/folder` hoặc `imgv ~/Pictures`.
    - Hỗ trợ cờ đệ quy `-r` / `--recursive` để quét cả thư mục con (có thể bật/tắt ngay trên UI).
 4. **Trải nghiệm Desktop Native**:
@@ -48,16 +54,20 @@ sudo mv imgv /usr/local/bin/
 
 ## 💻 Cách sử dụng CLI
 
+Chương trình **mặc định quét đệ quy (recursive)** tất cả các thư mục con. Nếu chỉ muốn xem ở thư mục hiện tại (không quét thư mục con), thêm cờ `--flat` hoặc `--no-recursive`.
+
 ```bash
-# Xem ảnh trong folder hiện tại
+# Xem TẤT CẢ ảnh đệ quy trong folder hiện tại (mặc định)
 imgv .
 
-# Xem ảnh trong một thư mục cụ thể
+# Xem tất cả ảnh đệ quy trong thư mục chỉ định
 imgv ~/Pictures
 imgv /path/to/my-folder
 
-# Quét đệ quy cả các thư mục con
-imgv -r ~/Wallpapers
+# Chế độ KHÔNG đệ quy (chỉ quét thư mục cấp 1, bỏ qua thư mục con)
+imgv --flat .
+# hoặc:
+imgv --no-recursive ~/Pictures
 
 # Chỉ định cổng mạng hoặc không tự bật cửa sổ
 imgv -p 8080 --no-open .

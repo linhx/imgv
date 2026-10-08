@@ -2,6 +2,7 @@ package scanner_test
 
 import (
 	"testing"
+	"time"
 
 	"imgv/internal/scanner"
 )
@@ -62,5 +63,18 @@ func TestScanDirectory(t *testing.T) {
 
 	if !foundAnimGif || !foundAnimWebp || !foundAnimSvg || !foundAnimPng || !foundStaticJpg || !foundStaticWebp {
 		t.Errorf("Some test files were missing from scan")
+	}
+}
+
+func TestRecursivePerformance(t *testing.T) {
+	start := time.Now()
+	result, err := scanner.ScanDirectory("../../test_large_tree", true)
+	if err != nil {
+		t.Fatalf("Failed recursive scan: %v", err)
+	}
+	elapsed := time.Since(start)
+	t.Logf("Scanned %d nested images in %s", result.TotalImages, elapsed)
+	if result.TotalImages < 600 {
+		t.Errorf("Expected at least 600 images, got %d", result.TotalImages)
 	}
 }
