@@ -12,7 +12,18 @@
 2. **Preview động ngay lập tức**:
    - Khi chọn ảnh, chế độ preview tự động phát ảnh động mượt mà ở đúng tốc độ khung hình gốc.
    - Hỗ trợ nút **Pause / Play** (đóng băng frame hiện tại bằng Canvas hoặc tiếp tục phát) chỉ với 1 phím `Space`.
-3. **Tối ưu siêu tốc cho thư mục khổng lồ (Recursive & Tens of thousands of images)**:
+3. **Menu chuột phải (Context Menu) phong cách Desktop chuyên nghiệp**:
+   - Thay thế hoàn toàn menu chuột phải HTML mặc định bằng menu native tối ưu riêng cho xem ảnh.
+   - **📂 Mở thư mục chứa file**: Mở File Manager của hệ điều hành và highlight trực tiếp file ảnh.
+   - **🚀 Mở bằng ứng dụng mặc định**: Mở file ảnh bằng trình xem ảnh mặc định của OS (Gnome Image Viewer, Gwenview, v.v.).
+   - **📋 Copy ảnh vào Clipboard**: Copy trực tiếp dữ liệu ảnh để paste (`Ctrl+V`) vào Photoshop, Discord, Telegram, Figma...
+   - **🔗 Copy đường dẫn file**: Copy đường dẫn tuyệt đối nhanh chóng.
+   - **⏯️ Tạm dừng / Tiếp tục ảnh động**: Điều khiển phát/dừng ảnh động trực tiếp từ menu.
+   - **🔄 Xoay 90° & 🪞 Lật ảnh ngang (Flip)**: Xoay hoặc lật gương ảnh.
+   - **🔍 Fit màn hình & 1️⃣ Kích thước thật 100% (1:1)**: Chuyển đổi tỉ lệ xem.
+   - **ℹ️ Xem thông tin chi tiết (Properties)**: Hộp thoại hiển thị chi tiết độ phân giải, megapixels, dung lượng, tỉ lệ khung hình, ngày sửa đổi.
+   - **🗑️ Xóa file**: Xóa ảnh nhanh có xác nhận an toàn.
+4. **Tối ưu siêu tốc cho thư mục khổng lồ (Recursive & Tens of thousands of images)**:
    - **Backend**: Sử dụng `filepath.WalkDir` để quét cây thư mục mà không tốn syscall `stat`, tự động bỏ qua các thư mục rác/mã nguồn (`.git`, `node_modules`, `vendor`, `.cache`...).
    - **Zero I/O Animation Check**: Nhận diện tức thì các định dạng tĩnh (`JPEG`, `BMP`, `TIFF`, `ICO`) mà không cần mở file. Chỉ kiểm tra chunk animation ở các file có thể động (`GIF`, `WebP VP8X`, `APNG`).
    - **Bounded Concurrency & Cache**: Worker pool đa luồng giới hạn tránh cạn kiệt file descriptors của OS, kết hợp bộ nhớ cache RAM cho các lần duyệt lại trong mili-giây.
@@ -54,13 +65,13 @@ sudo mv imgv /usr/local/bin/
 
 ## 💻 Cách sử dụng CLI
 
-Chương trình **mặc định quét đệ quy (recursive)** tất cả các thư mục con. Nếu chỉ muốn xem ở thư mục hiện tại (không quét thư mục con), thêm cờ `--flat` hoặc `--no-recursive`.
+Khi bạn gõ lệnh, chương trình sẽ **mở cửa sổ ứng dụng và giải phóng terminal ngay lập tức** (bạn có thể tiếp tục gõ các lệnh khác trong terminal bình thường). Khi bạn đóng cửa sổ xem ảnh, tiến trình ngầm sẽ tự động dọn dẹp và kết thúc.
 
 ```bash
-# Xem TẤT CẢ ảnh đệ quy trong folder hiện tại (mặc định)
+# Mở xem TẤT CẢ ảnh đệ quy trong thư mục hiện tại (terminal thoát ngay lập tức)
 imgv .
 
-# Xem tất cả ảnh đệ quy trong thư mục chỉ định
+# Mở xem ảnh trong thư mục chỉ định
 imgv ~/Pictures
 imgv /path/to/my-folder
 
@@ -69,7 +80,12 @@ imgv --flat .
 # hoặc:
 imgv --no-recursive ~/Pictures
 
-# Chỉ định cổng mạng hoặc không tự bật cửa sổ
+# Nếu muốn chạy bám theo terminal để xem log (Foreground mode)
+imgv -f .
+# hoặc:
+imgv --foreground .
+
+# Chạy làm HTTP server không tự mở cửa sổ
 imgv -p 8080 --no-open .
 
 # Xem hướng dẫn

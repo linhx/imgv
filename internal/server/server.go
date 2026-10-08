@@ -60,6 +60,7 @@ func (s *Server) Start(port int) (string, error) {
 	mux.HandleFunc("/api/images", s.handleImages)
 	mux.HandleFunc("/api/file", s.handleFile)
 	mux.HandleFunc("/api/open-system", s.handleOpenSystem)
+	mux.HandleFunc("/api/open-default", s.handleOpenDefault)
 	mux.HandleFunc("/api/delete", s.handleDelete)
 	mux.HandleFunc("/api/heartbeat", s.handleHeartbeat)
 
@@ -244,6 +245,28 @@ func (s *Server) handleOpenSystem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := browser.OpenInFileManager(req.Path); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleOpenDefault(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := browser.OpenFileWithDefaultApp(req.Path); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

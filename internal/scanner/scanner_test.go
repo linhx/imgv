@@ -1,6 +1,12 @@
 package scanner_test
 
 import (
+	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -67,14 +73,40 @@ func TestScanDirectory(t *testing.T) {
 }
 
 func TestRecursivePerformance(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create nested structure with 200 dummy images
+	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	for x := 0; x < 10; x++ {
+		for y := 0; y < 10; y++ {
+			img.Set(x, y, color.RGBA{100, 150, 200, 255})
+		}
+	}
+
+	dirs := []string{
+		tmpDir,
+		filepath.Join(tmpDir, "sub1"),
+		filepath.Join(tmpDir, "sub1", "sub2"),
+		filepath.Join(tmpDir, "sub3"),
+	}
+
+	for _, d := range dirs {
+		_ = os.MkdirAll(d, 0755)
+		for i := 0; i < 50; i++ {
+			f, _ := os.Create(filepath.Join(d, fmt.Sprintf("test_%d.jpg", i)))
+			_ = jpeg.Encode(f, img, nil)
+			_ = f.Close()
+		}
+	}
+
 	start := time.Now()
-	result, err := scanner.ScanDirectory("../../test_large_tree", true)
+	result, err := scanner.ScanDirectory(tmpDir, true)
 	if err != nil {
 		t.Fatalf("Failed recursive scan: %v", err)
 	}
 	elapsed := time.Since(start)
 	t.Logf("Scanned %d nested images in %s", result.TotalImages, elapsed)
-	if result.TotalImages < 600 {
-		t.Errorf("Expected at least 600 images, got %d", result.TotalImages)
+	if result.TotalImages != 200 {
+		t.Errorf("Expected 200 images, got %d", result.TotalImages)
 	}
 }

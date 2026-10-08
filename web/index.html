@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>imgv - Image Viewer</title>
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="alternate icon" href="/favicon.png">
 </head>
 <body class="dark-theme">
   <!-- Top Application Bar -->
   <header class="app-header">
     <div class="header-left">
       <div class="logo">
-        <span class="logo-icon">🖼️</span>
+        <img src="/icon.svg" class="logo-img" alt="imgv" width="26" height="26">
         <span class="logo-text">imgv</span>
         <span class="badge badge-glow" id="headerAnimatedCount">0 anim</span>
       </div>
@@ -60,6 +60,7 @@
         <button class="icon-btn" id="btnViewGrid" title="Grid View">⊞</button>
       </div>
 
+      <button class="lang-btn" id="btnLang" title="Change Language (English / Tiếng Việt)">🌐 EN</button>
       <button class="icon-btn" id="btnHelp" title="Keyboard Shortcuts (?)">⌨️</button>
     </div>
   </header>
@@ -185,6 +186,85 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" id="btnCloseHelpBtn">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Desktop Context Menu -->
+  <div class="context-menu" id="contextMenu" style="display: none;">
+    <div class="menu-item" id="ctxOpenFolder">
+      <span class="menu-icon">📂</span>
+      <span class="menu-label" id="lblCtxOpenFolder">Open Containing Folder</span>
+    </div>
+    <div class="menu-item" id="ctxOpenDefault">
+      <span class="menu-icon">🚀</span>
+      <span class="menu-label" id="lblCtxOpenDefault">Open with Default App</span>
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" id="ctxCopyImage">
+      <span class="menu-icon">📋</span>
+      <span class="menu-label" id="lblCtxCopyImage">Copy Image to Clipboard</span>
+    </div>
+    <div class="menu-item" id="ctxCopyPath">
+      <span class="menu-icon">🔗</span>
+      <span class="menu-label" id="lblCtxCopyPath">Copy File Path</span>
+      <span class="menu-shortcut">C</span>
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" id="ctxPlayPause">
+      <span class="menu-icon" id="ctxPlayPauseIcon">⏯️</span>
+      <span class="menu-label" id="ctxPlayPauseLabel">Pause / Play</span>
+      <span class="menu-shortcut">Space</span>
+    </div>
+    <div class="menu-item" id="ctxRotate">
+      <span class="menu-icon">🔄</span>
+      <span class="menu-label" id="lblCtxRotate">Rotate 90°</span>
+      <span class="menu-shortcut">R</span>
+    </div>
+    <div class="menu-item" id="ctxFlipH">
+      <span class="menu-icon">🪞</span>
+      <span class="menu-label" id="lblCtxFlipH">Flip Horizontal</span>
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" id="ctxFitScreen">
+      <span class="menu-icon">🔍</span>
+      <span class="menu-label" id="lblCtxFitScreen">Fit to Screen</span>
+      <span class="menu-shortcut">0</span>
+    </div>
+    <div class="menu-item" id="ctxActualSize">
+      <span class="menu-icon">1️⃣</span>
+      <span class="menu-label" id="lblCtxActualSize">Actual Size (100%)</span>
+      <span class="menu-shortcut">1</span>
+    </div>
+    <div class="menu-item" id="ctxFullscreen">
+      <span class="menu-icon">⛶</span>
+      <span class="menu-label" id="lblCtxFullscreen">Toggle Fullscreen</span>
+      <span class="menu-shortcut">F</span>
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item" id="ctxProperties">
+      <span class="menu-icon">ℹ️</span>
+      <span class="menu-label" id="lblCtxProperties">Image Properties</span>
+    </div>
+    <div class="menu-item menu-item-danger" id="ctxDelete">
+      <span class="menu-icon">🗑️</span>
+      <span class="menu-label" id="lblCtxDelete">Delete Image</span>
+      <span class="menu-shortcut">Del</span>
+    </div>
+  </div>
+
+  <!-- Image Properties Modal -->
+  <div class="modal-overlay" id="propsModal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalPropsTitle">Image Properties</h3>
+        <button class="modal-close" id="btnClosePropsModal">✕</button>
+      </div>
+      <div class="modal-body props-body" id="propsBody">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btnClosePropsBtn">Close</button>
       </div>
     </div>
   </div>

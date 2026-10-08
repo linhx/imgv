@@ -68,6 +68,10 @@ func LaunchApp(url string, appMode bool) (*exec.Cmd, error) {
 			}
 			cmd := exec.Command(chromePath, args...)
 			if err := cmd.Start(); err == nil {
+				go func() {
+					_ = cmd.Wait()
+					_ = os.RemoveAll(tmpDir)
+				}()
 				return cmd, nil
 			}
 		}
@@ -113,6 +117,25 @@ func OpenInFileManager(targetPath string) error {
 		return exec.Command("open", "-R", absPath).Start()
 	case "windows":
 		return exec.Command("explorer", "/select,", absPath).Start()
+	default:
+		return fmt.Errorf("unsupported OS")
+	}
+}
+
+// OpenFileWithDefaultApp opens the file using the OS default associated viewer
+func OpenFileWithDefaultApp(targetPath string) error {
+	absPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		return err
+	}
+
+	switch runtime.GOOS {
+	case "linux":
+		return exec.Command("xdg-open", absPath).Start()
+	case "darwin":
+		return exec.Command("open", absPath).Start()
+	case "windows":
+		return exec.Command("rundll32", "url.dll,FileProtocolHandler", absPath).Start()
 	default:
 		return fmt.Errorf("unsupported OS")
 	}

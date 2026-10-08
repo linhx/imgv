@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
 
 	"imgv/internal/browser"
+	"imgv/internal/daemon"
 	"imgv/internal/scanner"
 	"imgv/internal/server"
 )
@@ -28,10 +30,11 @@ USAGE:
     imgv [OPTIONS] [DIRECTORY]
 
 ARGUMENTS:
-    [DIRECTORY]          Target directory containing images (default: current directory ".")
+    [DIRECTORY]             Target directory containing images (default: current directory ".")
 
 OPTIONS:
     --flat, --no-recursive  Scan only the top-level directory (non-recursive)
+    -f, --foreground        Run in foreground (do not detach from terminal)
     -p, --port <port>       Port to listen on (default: auto-assign free port)
     --no-open               Do not automatically open the desktop app/browser
     --no-app                Open in default system browser instead of standalone app window
@@ -39,13 +42,15 @@ OPTIONS:
     -v, --version           Show version information
     -h, --help              Show this help message
 
-NOTE:
-    Recursive scan is ENABLED by default. Use --flat or --no-recursive to disable.
+BEHAVIOR:
+    - By default, imgv opens the window immediately and exits the CLI prompt.
+    - By default, recursive scanning is ENABLED.
 
 EXAMPLES:
-    imgv .                  # View all images recursively in current folder
-    imgv ~/Pictures         # View all images recursively in ~/Pictures
+    imgv .                  # Open viewer for current folder and free the terminal prompt
+    imgv ~/Pictures         # Open viewer for ~/Pictures in background
     imgv --flat /path/to    # View only images in /path/to without subfolders
+    imgv -f .               # Run attached in the foreground with console logs
     imgv -p 8080 --no-open  # Run as a local web server on port 8080
 `, Version)
 }
@@ -76,6 +81,8 @@ func main() {
 	var port int
 	var flat bool
 	var recursiveDummy bool
+	var foreground bool
+	var isDaemon bool
 	var noOpen bool
 	var noApp bool
 	var keepAlive bool
@@ -89,6 +96,9 @@ func main() {
 	flag.BoolVar(&flat, "nr", false, "Scan only top-level directory (non-recursive)")
 	flag.BoolVar(&recursiveDummy, "r", true, "Recursive scan (enabled by default)")
 	flag.BoolVar(&recursiveDummy, "recursive", true, "Recursive scan (enabled by default)")
+	flag.BoolVar(&foreground, "f", false, "Run attached in foreground")
+	flag.BoolVar(&foreground, "foreground", false, "Run attached in foreground")
+	flag.BoolVar(&isDaemon, "daemon", false, "Internal daemon flag")
 	flag.BoolVar(&noOpen, "no-open", false, "Do not launch browser window")
 	flag.BoolVar(&noApp, "no-app", false, "Open in default browser instead of app window")
 	flag.BoolVar(&keepAlive, "keep-alive", false, "Keep server alive after window closes")
@@ -135,13 +145,49 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initial scan to show summary in terminal
-	scanRes, err := scanner.ScanDirectory(absDir, recursive)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error scanning directory: %v\n", err)
-		os.Exit(1)
+	// If not running in foreground, daemonize to detach and free CLI prompt immediately
+	isAlreadyDaemon := isDaemon || os.Getenv("__IMGV_DAEMON") == "1"
+	if !foreground && !noOpen && !isAlreadyDaemon {
+		execPath, err := os.Executable()
+		if err != nil {
+			execPath = os.Args[0]
+		}
+
+		var childArgs []string
+		dirArgAdded := false
+		for _, a := range os.Args[1:] {
+			if a == "-f" || a == "--foreground" {
+				continue
+			}
+			if a == targetDir || a == "." {
+				childArgs = append(childArgs, absDir)
+				dirArgAdded = true
+				continue
+			}
+			childArgs = append(childArgs, a)
+		}
+		if !dirArgAdded {
+			childArgs = append(childArgs, absDir)
+		}
+		childArgs = append(childArgs, "--daemon")
+
+		cmd := exec.Command(execPath, childArgs...)
+		cmd.Env = append(os.Environ(), "__IMGV_DAEMON=1")
+		daemon.SetSysProcAttr(cmd)
+		cmd.Stdin = nil
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+
+		if err := cmd.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to launch imgv: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("🖼️  imgv opened for: %s\n", absDir)
+		os.Exit(0)
 	}
 
+	// Running as background daemon or attached foreground process:
 	if port == 0 {
 		freePort, err := getFreePort()
 		if err != nil {
@@ -164,20 +210,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Pretty terminal output
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("  🖼️  imgv - Image Viewer v%s\n", Version)
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("  📂 Folder:     %s\n", absDir)
-	fmt.Printf("  📸 Images:     %d total (%d animated ⚡, %d static)\n",
-		scanRes.TotalImages, scanRes.AnimatedCount, scanRes.StaticCount)
-	fmt.Printf("  🌐 Local URL:  %s\n", appURL)
-	if !noOpen {
-		fmt.Println("  🚀 Window:     Launching desktop viewer...")
+	if foreground {
+		scanRes, _ := scanner.ScanDirectory(absDir, recursive)
+		total := 0
+		animCount := 0
+		staticCount := 0
+		if scanRes != nil {
+			total = scanRes.TotalImages
+			animCount = scanRes.AnimatedCount
+			staticCount = scanRes.StaticCount
+		}
+
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("  🖼️  imgv - Image Viewer v%s (Foreground Mode)\n", Version)
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Printf("  📂 Folder:     %s\n", absDir)
+		fmt.Printf("  📸 Images:     %d total (%d animated ⚡, %d static)\n", total, animCount, staticCount)
+		fmt.Printf("  🌐 Local URL:  %s\n", appURL)
+		if !noOpen {
+			fmt.Println("  🚀 Window:     Launching desktop viewer...")
+		}
+		fmt.Println("  🛑 Quit:       Press Ctrl+C to exit")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	}
-	fmt.Println("  ⌨️  Shortcuts:  Space: Play/Pause | Arrows: Next/Prev | F: Fullscreen")
-	fmt.Println("  🛑 Quit:       Press Ctrl+C to exit")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	// Launch desktop window or default browser
 	if !noOpen {
@@ -192,8 +247,12 @@ func main() {
 
 	select {
 	case <-sigChan:
-		fmt.Println("\n👋 Exiting imgv. Goodbye!")
+		if foreground {
+			fmt.Println("\n👋 Exiting imgv. Goodbye!")
+		}
 	case <-srv.ShutdownChan():
-		fmt.Println("\n🪟 Window closed. Exiting imgv...")
+		if foreground {
+			fmt.Println("\n🪟 Window closed. Exiting imgv...")
+		}
 	}
 }

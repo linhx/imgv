@@ -22,6 +22,7 @@ const state = {
   panX: 0,
   panY: 0,
   rotation: 0,
+  flipH: false,
   isPanning: false,
   startX: 0,
   startY: 0,
@@ -105,6 +106,29 @@ const DOM = {
   helpModal: document.getElementById("helpModal"),
   btnCloseHelpModal: document.getElementById("btnCloseHelpModal"),
   btnCloseHelpBtn: document.getElementById("btnCloseHelpBtn"),
+
+  // Context Menu
+  contextMenu: document.getElementById("contextMenu"),
+  ctxOpenFolder: document.getElementById("ctxOpenFolder"),
+  ctxOpenDefault: document.getElementById("ctxOpenDefault"),
+  ctxCopyImage: document.getElementById("ctxCopyImage"),
+  ctxCopyPath: document.getElementById("ctxCopyPath"),
+  ctxPlayPause: document.getElementById("ctxPlayPause"),
+  ctxPlayPauseIcon: document.getElementById("ctxPlayPauseIcon"),
+  ctxPlayPauseLabel: document.getElementById("ctxPlayPauseLabel"),
+  ctxRotate: document.getElementById("ctxRotate"),
+  ctxFlipH: document.getElementById("ctxFlipH"),
+  ctxFitScreen: document.getElementById("ctxFitScreen"),
+  ctxActualSize: document.getElementById("ctxActualSize"),
+  ctxFullscreen: document.getElementById("ctxFullscreen"),
+  ctxProperties: document.getElementById("ctxProperties"),
+  ctxDelete: document.getElementById("ctxDelete"),
+
+  // Properties Modal
+  propsModal: document.getElementById("propsModal"),
+  propsBody: document.getElementById("propsBody"),
+  btnClosePropsModal: document.getElementById("btnClosePropsModal"),
+  btnClosePropsBtn: document.getElementById("btnClosePropsBtn"),
 
   toast: document.getElementById("toast"),
 };
@@ -445,6 +469,16 @@ function selectImage(index) {
 
   updateVirtualList();
   renderFilmstrip();
+
+  // If in grid view, highlight active card
+  const gridContainer = document.getElementById("gridGalleryContainer");
+  if (gridContainer) {
+    gridContainer.querySelectorAll(".grid-card").forEach((c) => c.classList.remove("active"));
+    const activeCard = gridContainer.querySelector(`[data-index="${index}"]`);
+    if (activeCard) {
+      activeCard.classList.add("active");
+    }
+  }
 }
 
 // Animation Freeze / Playback Toggle
@@ -497,11 +531,13 @@ function resetTransform() {
   state.panX = 0;
   state.panY = 0;
   state.rotation = 0;
+  state.flipH = false;
   applyTransform();
 }
 
 function applyTransform() {
-  DOM.canvasContainer.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale}) rotate(${state.rotation}deg)`;
+  const flip = state.flipH ? "scaleX(-1)" : "";
+  DOM.canvasContainer.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale}) rotate(${state.rotation}deg) ${flip}`;
 }
 
 function fitToViewport() {
@@ -620,6 +656,166 @@ async function deleteCurrentImage() {
   }
 }
 
+// Open with default associated application in OS
+async function openWithDefaultApp() {
+  const current = state.filteredImages[state.currentIndex];
+  if (!current) return;
+  try {
+    const res = await fetch("/api/open-default", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: current.path }),
+    });
+    if (res.ok) {
+      showToast("Opened in default system viewer");
+    } else {
+      showToast("Could not open in default viewer");
+    }
+  } catch (err) {
+    showToast("Failed to open default app");
+  }
+}
+
+// Copy actual image to system clipboard
+async function copyImageToClipboard() {
+  const current = state.filteredImages[state.currentIndex];
+  if (!current) return;
+  showToast("Copying image to clipboard...");
+  try {
+    const fileUrl = `/api/file?path=${encodeURIComponent(current.path)}`;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || 600;
+      canvas.height = img.naturalHeight || 400;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          showToast("Failed to convert image for clipboard");
+          return;
+        }
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob })
+          ]);
+          showToast("Image copied to clipboard! 📋");
+        } catch (err) {
+          showToast("Clipboard write permission error: " + err.message);
+        }
+      }, "image/png");
+    };
+    img.onerror = () => {
+      showToast("Could not load image to copy");
+    };
+    img.src = fileUrl;
+  } catch (err) {
+    showToast("Error: " + err.message);
+  }
+}
+
+// Flip image horizontally
+function flipImageHorizontal() {
+  state.flipH = !state.flipH;
+  applyTransform();
+  showToast(state.flipH ? "Lật ảnh ngang (Flip)" : "Khôi phục chiều ảnh");
+}
+
+// Show Image Properties Details Modal
+function showImageProperties() {
+  const current = state.filteredImages[state.currentIndex];
+  if (!current) return;
+
+  const mp = current.width && current.height ? ((current.width * current.height) / 1000000).toFixed(2) + " MP" : "-";
+  const modDate = new Date(current.mod_time).toLocaleString();
+
+  DOM.propsBody.innerHTML = `
+    <div class="prop-row">
+      <span class="prop-label">Tên tệp:</span>
+      <span class="prop-value" title="${current.name}">${current.name}</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Định dạng:</span>
+      <span class="prop-value">${current.format.toUpperCase()} (${current.ext})</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Loại ảnh:</span>
+      <span class="prop-value">${current.is_animated ? "⚡ Ảnh động (Animated)" : "Ảnh tĩnh (Static)"}</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Độ phân giải:</span>
+      <span class="prop-value">${current.width && current.height ? `${current.width} × ${current.height} px (${mp})` : "Dynamic / Vector"}</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Tỉ lệ khung hình:</span>
+      <span class="prop-value">${current.aspect_ratio ? current.aspect_ratio.toFixed(2) + " : 1" : "-"}</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Dung lượng:</span>
+      <span class="prop-value">${formatBytes(current.size)} (${current.size.toLocaleString()} bytes)</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Ngày sửa đổi:</span>
+      <span class="prop-value">${modDate}</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Đường dẫn đầy đủ:</span>
+      <span class="prop-value" title="${current.path}">${current.path}</span>
+    </div>
+  `;
+  DOM.propsModal.style.display = "flex";
+}
+
+// Context Menu Display and Boundary Positioning
+function showContextMenu(e, itemIndex) {
+  e.preventDefault();
+
+  if (itemIndex !== undefined && itemIndex !== null && itemIndex >= 0) {
+    if (state.currentIndex !== itemIndex) {
+      selectImage(itemIndex);
+    }
+  }
+
+  const current = state.filteredImages[state.currentIndex];
+  if (!current) return;
+
+  // Toggle play/pause visibility
+  if (current.is_animated) {
+    DOM.ctxPlayPause.style.display = "flex";
+    DOM.ctxPlayPauseLabel.textContent = state.isPaused ? "Tiếp tục phát" : "Tạm dừng";
+    DOM.ctxPlayPauseIcon.textContent = state.isPaused ? "▶️" : "⏸️";
+  } else {
+    DOM.ctxPlayPause.style.display = "none";
+  }
+
+  const menu = DOM.contextMenu;
+  menu.style.display = "flex";
+  menu.style.visibility = "hidden";
+
+  requestAnimationFrame(() => {
+    const menuW = menu.offsetWidth || 250;
+    const menuH = menu.offsetHeight || 370;
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + menuW > window.innerWidth) x = window.innerWidth - menuW - 8;
+    if (y + menuH > window.innerHeight) y = window.innerHeight - menuH - 8;
+    if (x < 0) x = 8;
+    if (y < 0) y = 8;
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.style.visibility = "visible";
+  });
+}
+
+function hideContextMenu() {
+  if (DOM.contextMenu) {
+    DOM.contextMenu.style.display = "none";
+  }
+}
+
 // Chunked Infinite Grid Gallery (Prevents freezing with thousands of images)
 function renderGridGallery() {
   let gridContainer = document.getElementById("gridGalleryContainer");
@@ -639,8 +835,23 @@ function renderGridGallery() {
     });
   }
 
+  // Ensure enough items are rendered to cover state.currentIndex
+  if (state.currentIndex >= 0 && state.currentIndex >= state.gridLoadedCount) {
+    state.gridLoadedCount = state.currentIndex + 60;
+  }
+
   gridContainer.innerHTML = "";
   appendGridCards(gridContainer);
+
+  // Scroll to active card to preserve position in grid
+  if (state.currentIndex >= 0) {
+    requestAnimationFrame(() => {
+      const activeCard = gridContainer.querySelector(`[data-index="${state.currentIndex}"]`);
+      if (activeCard) {
+        activeCard.scrollIntoView({ behavior: "auto", block: "center" });
+      }
+    });
+  }
 }
 
 function appendGridCards(gridContainer) {
@@ -651,7 +862,9 @@ function appendGridCards(gridContainer) {
   for (let i = start; i < end; i++) {
     const img = state.filteredImages[i];
     const card = document.createElement("div");
-    card.className = "grid-card";
+    const isSelected = i === state.currentIndex;
+    card.className = `grid-card ${isSelected ? "active" : ""}`;
+    card.dataset.index = i;
     const fileUrl = `/api/file?path=${encodeURIComponent(img.path)}`;
 
     card.innerHTML = `
@@ -667,8 +880,8 @@ function appendGridCards(gridContainer) {
     `;
 
     card.addEventListener("click", () => {
-      setViewMode("split");
       selectImage(i);
+      setViewMode("split");
     });
 
     fragment.appendChild(card);
@@ -677,7 +890,22 @@ function appendGridCards(gridContainer) {
   gridContainer.appendChild(fragment);
 }
 
+function getTopmostVisibleGridCardIndex(container) {
+  if (!container) return state.currentIndex;
+  const cards = container.querySelectorAll(".grid-card");
+  const containerTop = container.scrollTop;
+  for (const card of cards) {
+    if (card.offsetTop + card.offsetHeight > containerTop + 20) {
+      const idx = parseInt(card.dataset.index);
+      if (!isNaN(idx)) return idx;
+    }
+  }
+  return state.currentIndex;
+}
+
 function setViewMode(mode) {
+  if (state.viewMode === mode) return;
+
   state.viewMode = mode;
   if (mode === "grid") {
     DOM.appBody.classList.add("body-grid-view");
@@ -685,12 +913,30 @@ function setViewMode(mode) {
     DOM.btnViewSplit.classList.remove("active");
     renderGridGallery();
   } else {
+    // Switching to split view: determine which card was at the top of the grid if user scrolled
+    const grid = document.getElementById("gridGalleryContainer");
+    if (grid) {
+      const topIdx = getTopmostVisibleGridCardIndex(grid);
+      if (topIdx >= 0 && topIdx < state.filteredImages.length) {
+        state.currentIndex = topIdx;
+      }
+      grid.remove();
+    }
+
     DOM.appBody.classList.remove("body-grid-view");
     DOM.btnViewSplit.classList.add("active");
     DOM.btnViewGrid.classList.remove("active");
-    const grid = document.getElementById("gridGalleryContainer");
-    if (grid) grid.remove();
-    updateVirtualList();
+
+    // Re-select and display image in split preview
+    selectImage(state.currentIndex);
+
+    // Scroll sidebar virtual list to center the current image
+    if (state.currentIndex >= 0) {
+      const clientH = DOM.thumbnailList.clientHeight || 500;
+      const targetTop = Math.max(0, state.currentIndex * VIRTUAL_ITEM_HEIGHT - (clientH / 2) + (VIRTUAL_ITEM_HEIGHT / 2));
+      DOM.thumbnailList.scrollTop = targetTop;
+      updateVirtualList();
+    }
   }
 }
 
@@ -827,8 +1073,10 @@ function setupKeyboardNavigation() {
         break;
 
       case "Escape":
+        hideContextMenu();
         DOM.folderModal.style.display = "none";
         DOM.helpModal.style.display = "none";
+        DOM.propsModal.style.display = "none";
         break;
     }
   });
@@ -851,6 +1099,72 @@ function setupEventListeners() {
   DOM.btnCopyPath.addEventListener("click", copyCurrentPath);
   DOM.btnOpenSystem.addEventListener("click", openInSystem);
   DOM.btnDelete.addEventListener("click", deleteCurrentImage);
+
+  // Custom Context Menu Items
+  DOM.ctxOpenFolder.addEventListener("click", () => { hideContextMenu(); openInSystem(); });
+  DOM.ctxOpenDefault.addEventListener("click", () => { hideContextMenu(); openWithDefaultApp(); });
+  DOM.ctxCopyImage.addEventListener("click", () => { hideContextMenu(); copyImageToClipboard(); });
+  DOM.ctxCopyPath.addEventListener("click", () => { hideContextMenu(); copyCurrentPath(); });
+  DOM.ctxPlayPause.addEventListener("click", () => { hideContextMenu(); togglePlayPause(); });
+  DOM.ctxRotate.addEventListener("click", () => { hideContextMenu(); rotateImage(); });
+  DOM.ctxFlipH.addEventListener("click", () => { hideContextMenu(); flipImageHorizontal(); });
+  DOM.ctxFitScreen.addEventListener("click", () => { hideContextMenu(); fitToViewport(); });
+  DOM.ctxActualSize.addEventListener("click", () => { hideContextMenu(); setZoom100(); });
+  DOM.ctxFullscreen.addEventListener("click", () => { hideContextMenu(); toggleFullscreen(); });
+  DOM.ctxProperties.addEventListener("click", () => { hideContextMenu(); showImageProperties(); });
+  DOM.ctxDelete.addEventListener("click", () => { hideContextMenu(); deleteCurrentImage(); });
+
+  // Properties Modal Close
+  DOM.btnClosePropsModal.addEventListener("click", () => DOM.propsModal.style.display = "none");
+  DOM.btnClosePropsBtn.addEventListener("click", () => DOM.propsModal.style.display = "none");
+
+  // Right-Click Context Menu Interceptor
+  window.addEventListener("contextmenu", (e) => {
+    // Check if right click occurred on a thumbnail card
+    const card = e.target.closest(".thumb-card");
+    if (card) {
+      const idx = parseInt(card.dataset.index);
+      showContextMenu(e, idx);
+      return;
+    }
+
+    // Check if right click occurred on a grid card
+    const gridCard = e.target.closest(".grid-card");
+    if (gridCard) {
+      const idx = parseInt(gridCard.dataset.index);
+      showContextMenu(e, idx);
+      return;
+    }
+
+    // Check if right click occurred on a filmstrip thumbnail
+    const filmThumb = e.target.closest(".filmstrip-thumb");
+    if (filmThumb) {
+      const idx = parseInt(filmThumb.dataset.index);
+      showContextMenu(e, idx);
+      return;
+    }
+
+    // Preview area or main window
+    const stage = e.target.closest("#previewStage") || e.target.closest("#viewport") || e.target.closest(".canvas-container");
+    if (stage) {
+      showContextMenu(e, state.currentIndex);
+      return;
+    }
+
+    // Prevent default browser menu anywhere in app
+    e.preventDefault();
+    if (state.currentIndex >= 0) {
+      showContextMenu(e, state.currentIndex);
+    }
+  });
+
+  // Hide context menu on normal click anywhere outside or on scroll
+  window.addEventListener("click", (e) => {
+    if (!e.target.closest("#contextMenu")) {
+      hideContextMenu();
+    }
+  });
+  window.addEventListener("scroll", hideContextMenu, true);
 
   // Search Box (Debounced for large lists)
   DOM.searchInput.addEventListener("input", (e) => {
