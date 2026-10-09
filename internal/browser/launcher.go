@@ -61,11 +61,16 @@ func LaunchApp(url string, appMode bool, onClose func()) (*exec.Cmd, error) {
 
 			args := []string{
 				fmt.Sprintf("--app=%s", url),
+			}
+			if runtime.GOOS == "linux" {
+				args = append(args, "--class=imgv")
+			}
+			args = append(args,
 				fmt.Sprintf("--user-data-dir=%s", tmpDir),
 				"--no-first-run",
 				"--no-default-browser-check",
 				"--window-size=1366,860",
-			}
+			)
 			cmd := exec.Command(chromePath, args...)
 			if err := cmd.Start(); err == nil {
 				go func() {

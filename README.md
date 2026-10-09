@@ -82,19 +82,25 @@
 - Go 1.21 or higher installed on your machine.
 - Linux, macOS, or Windows.
 
-### Build from Source
+### One-Click Installation (Linux)
+
+Install `imgv` along with all desktop icons, app launcher integration, and file associations with a single command:
+
 ```bash
 # Clone the repository
 git clone https://github.com/your-username/img-viewer.git
 cd img-viewer
 
-# Compile the standalone binary
-go build -o imgv .
+# Install for current user (no sudo required)
+./install.sh
 
-# Optional: Install to system PATH
-sudo mv imgv /usr/local/bin/
-# Or for user-level bin:
-# mv imgv ~/.local/bin/
+# Or install system-wide (requires sudo)
+sudo ./install.sh
+```
+
+To uninstall at any time:
+```bash
+./install.sh --uninstall
 ```
 
 ---

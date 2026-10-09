@@ -497,9 +497,20 @@ async function loadImages(folder = "", recursive = state.recursive) {
     renderFormatChips(data.formats || []);
     applyFiltersAndSort();
 
-    // Select first image if available
+    // Select image from URL query (?file=...) if specified, else first image
+    const initialTargetFile = new URLSearchParams(window.location.search).get("file");
+    let targetIdx = 0;
+    if (initialTargetFile && state.filteredImages.length > 0) {
+      const found = state.filteredImages.findIndex(
+        (img) => img.name === initialTargetFile || img.rel_path === initialTargetFile
+      );
+      if (found !== -1) {
+        targetIdx = found;
+      }
+    }
+
     if (state.filteredImages.length > 0) {
-      selectImage(0);
+      selectImage(targetIdx);
     } else {
       selectImage(-1);
     }

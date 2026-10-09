@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -137,14 +138,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	origTarget := absDir
+	var initialFile string
 	fi, err := os.Stat(absDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: directory '%s' does not exist.\n", absDir)
+		fmt.Fprintf(os.Stderr, "Error: path '%s' does not exist.\n", absDir)
 		os.Exit(1)
 	}
 	if !fi.IsDir() {
-		fmt.Fprintf(os.Stderr, "Error: '%s' is a file, not a directory.\n", absDir)
-		os.Exit(1)
+		initialFile = filepath.Base(absDir)
+		absDir = filepath.Dir(absDir)
 	}
 
 	// If not running in foreground, daemonize to detach and free CLI prompt immediately
@@ -162,14 +165,14 @@ func main() {
 				continue
 			}
 			if a == targetDir || a == "." {
-				childArgs = append(childArgs, absDir)
+				childArgs = append(childArgs, origTarget)
 				dirArgAdded = true
 				continue
 			}
 			childArgs = append(childArgs, a)
 		}
 		if !dirArgAdded {
-			childArgs = append(childArgs, absDir)
+			childArgs = append(childArgs, origTarget)
 		}
 		childArgs = append(childArgs, "--daemon")
 
@@ -212,8 +215,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	var queryParams []string
 	if lang != "" {
-		appURL = fmt.Sprintf("%s?lang=%s", appURL, lang)
+		queryParams = append(queryParams, fmt.Sprintf("lang=%s", url.QueryEscape(lang)))
+	}
+	if initialFile != "" {
+		queryParams = append(queryParams, fmt.Sprintf("file=%s", url.QueryEscape(initialFile)))
+	}
+	if len(queryParams) > 0 {
+		appURL = fmt.Sprintf("%s?%s", appURL, strings.Join(queryParams, "&"))
 	}
 
 	if foreground {
